@@ -1,0 +1,7 @@
+worldcup_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: manifold.duckdb
+      threads: 4

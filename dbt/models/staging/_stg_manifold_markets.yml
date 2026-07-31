@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: stg_manifold_markets
+    description: One row per World Cup 2026 market. No filtering — every market from the source is included.
+    columns:
+      - name: market_id
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_manifold_market_answers
+    description: One row per answer, for non-BINARY markets only (see ingest/pull_market_answers.py for why).
+    columns:
+      - name: answer_id
+        tests:
+          - unique
+          - not_null
+      - name: market_id
+        tests:
+          - not_null

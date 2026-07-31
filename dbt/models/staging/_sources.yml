@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: manifold_raw
+    description: >
+      Parquet output from spark/flatten_to_parquet.py — typed, flattened,
+      but zero business logic applied (see ADR-0005). DuckDB reads these
+      files directly; there's no separate "load into the warehouse" step.
+    meta:
+      external_location: "../data/processed/{name}/*.parquet"
+    tables:
+      - name: markets
+      - name: market_answers
+      - name: bets

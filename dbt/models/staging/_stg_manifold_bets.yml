@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: stg_manifold_bets
+    description: >
+      Real, filled, non-cancelled trades only — cancelled limit orders and
+      redemptions filtered out here (see the model's own comment for why
+      this is the right layer for that decision).
+    columns:
+      - name: bet_id
+        tests:
+          - unique
+          - not_null
+      - name: market_id
+        tests:
+          - not_null

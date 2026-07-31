@@ -1,0 +1,13 @@
+secrets/
+.env
+venv/
+__pycache__/
+data/
+.idea/
+dbt/target/
+dbt/logs/
+dbt/*.duckdb
+dbt/*.duckdb.wal
+dbt/package-lock.yml
+dbt/dbt_packages/
+dbt/.user.yml
