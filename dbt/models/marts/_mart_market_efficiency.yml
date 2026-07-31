@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: mart_market_efficiency
+    description: >
+      One row per resolved prediction (BINARY market or MULTIPLE_CHOICE
+      answer), with resolution-time predicted probability, actual outcome,
+      and a decile bucket — the core calibration and favorite-longshot-bias
+      analysis table.
+    columns:
+      - name: market_id
+        tests:
+          - not_null
+      - name: predicted_prob
+        tests:
+          - not_null
+      - name: is_yes
+        tests:
+          - not_null
+      - name: prob_bucket
+        tests:
+          - not_null

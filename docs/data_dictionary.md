@@ -59,7 +59,7 @@ Produced by [`ingest/pull_market_answers.py`](../ingest/pull_market_answers.py) 
 | `text` | string | Human-readable answer label, e.g. "Lionel Messi to score at least one goal." |
 | `isOther` | bool | Whether this is Manifold's auto-generated catch-all "Other" answer. |
 | `probability` | float, 0–1 | Current (or final) probability for this specific answer. |
-| `resolution` | string | `YES` / `NO` for this answer specifically, or empty if unresolved — already human-readable, no ID to decode. |
+| `resolution` | string | Already human-readable, no ID to decode — but **correcting an earlier claim here that turned out to be incomplete**: this isn't only `YES`/`NO`. Confirmed empirically across the full dataset: `NO` (1,697), `YES` (925), empty/unresolved (1,812), `CANCEL` (70), `MKT` (41). Same set of values as the parent market's `resolution` field for `BINARY` markets, just per-answer. Anything building calibration analysis on this needs `WHERE resolution IN ('YES', 'NO')` explicitly — `CANCEL`/`MKT` rows have no clean ground truth. |
 | `resolutionProbability` | float, 0–1 | The probability at the moment this answer resolved — the key input for the market-calibration mart later. |
 | `resolutionTime` | int | Epoch ms UTC. |
 | `volume` | float | Trading volume in Mana, scoped to this answer. |
