@@ -63,4 +63,10 @@ Done (2026-07-31): `dbt/` project set up against DuckDB — full staging layer (
 
 A fourth real bug found and fixed the same day, bigger than the earlier ones: a small `limit` value was silently truncating `/v0/search-markets` results — 232 of 621 real markets (37%) were missing from the entire dataset, with zero errors and zero variance across repeated runs, so nothing about it looked broken (see [ADR-0007](docs/decisions/0007-search-limit-truncation.md)). Fixed and re-ingested everything: 621 markets (was 389), 4,545 answers (was 3,286), 1,176,547 raw bets (was 400,207), 212,749 real trades after filtering (was 133,125). Also added retry-with-backoff to `pull_bets.py` after a real transient 503 crashed a run partway through.
 
+Done: `mart_market_efficiency` — unions resolved `BINARY` markets and `MULTIPLE_CHOICE` answers into one shape, bucketed by decile. Real result: a textbook favorite-longshot bias pattern (longshots overpriced, favorites slightly underpriced, most pronounced and best-sampled at the extremes). Full writeup with a chart in `docs/results.md`, chart reproducible via `analysis/plot_calibration.py`. This is the actual core-scope deliverable — the pipeline now answers both problem-statement questions, not just moves data around.
+
+## Remaining for core scope
+
+Kubernetes — containerize ingest/Spark/dbt, deploy as a Job on minikube or kind. Nothing built yet on this front. Everything else in core scope (see "Scope: core vs. stretch" above) is done.
+
 Next: `mart_market_efficiency` — core scope, the mart that actually answers the problem statement. See "Scope: core vs. stretch" above for what's required to reach a demoable state.
