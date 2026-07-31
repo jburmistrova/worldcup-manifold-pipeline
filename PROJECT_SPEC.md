@@ -45,7 +45,7 @@ Called out explicitly (2026-07-30) after a documentation-heavy stretch got ahead
 - `mart_match_price_history` and `mart_outright_odds_over_time` (the other two marts — nice additional demonstration, not load-bearing for the core question)
 - Postgres-as-StatefulSet swap ([ADR-0004](docs/decisions/0004-local-warehouse-duckdb-then-postgres.md), phase 2)
 - CI (GitHub Actions running dbt tests / unit tests)
-- The full favorite-longshot-bias-by-liquidity breakdown, beyond the base calibration comparison
+- ~~The full favorite-longshot-bias-by-liquidity breakdown, beyond the base calibration comparison~~ — done 2026-07-31, see below
 
 ## Target outcome
 
@@ -64,6 +64,8 @@ Done (2026-07-31): `dbt/` project set up against DuckDB — full staging layer (
 A fourth real bug found and fixed the same day, bigger than the earlier ones: a small `limit` value was silently truncating `/v0/search-markets` results — 232 of 621 real markets (37%) were missing from the entire dataset, with zero errors and zero variance across repeated runs, so nothing about it looked broken (see [ADR-0007](docs/decisions/0007-search-limit-truncation.md)). Fixed and re-ingested everything: 621 markets (was 389), 4,545 answers (was 3,286), 1,176,547 raw bets (was 400,207), 212,749 real trades after filtering (was 133,125). Also added retry-with-backoff to `pull_bets.py` after a real transient 503 crashed a run partway through.
 
 Done: `mart_market_efficiency` — unions resolved `BINARY` markets and `MULTIPLE_CHOICE` answers into one shape, bucketed by decile. Real result: a textbook favorite-longshot bias pattern (longshots overpriced, favorites slightly underpriced, most pronounced and best-sampled at the extremes). Full writeup with a chart in `docs/results.md`, chart reproducible via `analysis/plot_calibration.py`. This is the actual core-scope deliverable — the pipeline now answers both problem-statement questions, not just moves data around.
+
+Done (2026-07-31): closed both remaining gaps in the analysis. (1) The original Brier-score-vs-Manifold comparison (0.0185) turned out to be measuring something different from Manifold's own number — theirs is trade-weighted across a market's lifetime, ours was one resolution-time snapshot per prediction. Built `mart_trade_calibration` to replicate Manifold's exact stated methodology (trades on `BINARY` markets with 15+ traders, predicted probability = average of before/after each trade) — the matched comparison is 0.1305 vs. Manifold's 0.1748, a believable gap instead of a suspicious one. Documented as a generalizable lesson in `lessons_learned.md`. (2) Built the liquidity-vs-calibration breakdown (previously listed as stretch, above) — raw numbers looked like low liquidity predicts better calibration, but that was the same easy-bucket confound as the Brier comparison; controlling for it, the three liquidity tiers land in the same noisy range with no credible relationship, though sample sizes (n≈30) are too thin for a confident null. Full writeup in `docs/results.md`, reproducible via `analysis/compute_calibration_metrics.py`.
 
 ## Remaining for core scope
 
