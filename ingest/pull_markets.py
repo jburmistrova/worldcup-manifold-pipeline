@@ -67,7 +67,7 @@ def fetch_all(term):
     # fires on that last full page, so we'd make one more call and check #1 catches the empty
     # page that comes back
     while True:
-        # one page = up to `limit` markets starting at `offset`. offset=0 gets the first 100, offset=100 gets the next 100
+        # one page = up to `limit` markets starting at `offset`. offset=0 gets the first `limit`, offset=limit gets the next batch
         page = search_markets(term, limit=limit, offset=offset)
 
         # stop condition #1, see note above

@@ -4,7 +4,7 @@ A Spark + dbt pipeline over Manifold Markets' public API, reconstructing implied
 
 Built to gain real, hands-on experience with Spark, dbt, and Kubernetes — three tools I hadn't used in production before this. See [Architecture Decision Records](docs/decisions/) for the reasoning behind every non-obvious choice, including the ones that add complexity this specific workload didn't strictly need.
 
-**Status (2026-07-30):** in progress. Ingestion (markets, market answers, 400K+ bet records) and the Spark extract/load step are both built and verified. dbt and Kubernetes are designed (see docs below) but not yet implemented. See `PROJECT_SPEC.md`'s "Scope: core vs. stretch" section for exactly what's required to reach a demoable state.
+**Status (2026-07-31):** in progress. Ingestion (621 markets, 4,545 answers, 1.18M bet records), the Spark extract/load step, and dbt's staging + intermediate layers are all built and verified. Marts and Kubernetes are designed (see docs below) but not yet implemented. See `PROJECT_SPEC.md`'s "Scope: core vs. stretch" section for exactly what's required to reach a demoable state.
 
 ## Problem statement
 
@@ -36,7 +36,7 @@ flowchart LR
 
 ## What I'd do differently in production
 
-This project intentionally uses more infrastructure than the workload strictly needs, in order to practice it. Short version: no Airflow (ingest/Spark/dbt run as one Kubernetes Job instead of a DAG), this is a one-time batch backfill rather than a live Kafka+Streaming pipeline, and the whole thing runs at a scale (~400K rows, one laptop) where none of Spark or Kubernetes' real value — distributed compute, multi-node scheduling, cluster-wide resource sharing — actually applies. Full dimension-by-dimension breakdown, including exactly which forcing functions would have to be true for each tool to earn its place for real: [docs/project_scale_vs_production.md](docs/project_scale_vs_production.md).
+This project intentionally uses more infrastructure than the workload strictly needs, in order to practice it. Short version: no Airflow (ingest/Spark/dbt run as one Kubernetes Job instead of a DAG), this is a one-time batch backfill rather than a live Kafka+Streaming pipeline, and the whole thing runs at a scale (~1.2M raw rows, one laptop) where none of Spark or Kubernetes' real value — distributed compute, multi-node scheduling, cluster-wide resource sharing — actually applies. Full dimension-by-dimension breakdown, including exactly which forcing functions would have to be true for each tool to earn its place for real: [docs/project_scale_vs_production.md](docs/project_scale_vs_production.md).
 
 ## How to run it
 
@@ -49,7 +49,7 @@ cp .env.example .env   # see requirements.md for JAVA_HOME setup
 
 python ingest/pull_markets.py
 python ingest/pull_market_answers.py
-python ingest/pull_bets.py          # takes a few minutes — ~400K bet records
+python ingest/pull_bets.py          # takes 10-15 minutes — ~1.2M bet records
 
 python spark/flatten_to_parquet.py  # raw JSON -> typed Parquet
 

@@ -36,11 +36,18 @@ def get_bets_page(contract_id, after=None):
     # 4xx errors are NOT retried - a client error won't fix itself by waiting.
     for attempt in range(MAX_RETRIES):
         resp = requests.get(f"{BASE_URL}/bets", params=params, timeout=15)
+        # < 500 covers both success (2xx, just return it) and client errors
+        # (4xx) - raise_for_status() only actually raises on the 4xx case,
+        # a 2xx passes through and .json() returns normally
         if resp.status_code < 500:
             resp.raise_for_status()
             return resp.json()
+        # got a 5xx. on the last allowed attempt, stop retrying and surface
+        # the real error instead of silently giving up
         if attempt == MAX_RETRIES - 1:
             resp.raise_for_status()
+        # 2**attempt: 1, 2, 4, 8, 16 seconds - growing gap between retries,
+        # plus up to 1s of random jitter so retries don't all land at once
         wait = (2 ** attempt) + random.uniform(0, 1)
         time.sleep(wait)
 
