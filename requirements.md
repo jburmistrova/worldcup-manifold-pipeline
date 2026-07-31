@@ -18,7 +18,10 @@ Both installed via Homebrew — deliberately avoided a from-source Python build 
 ```bash
 brew install openjdk@25
 brew install python@3.14
+brew install duckdb
 ```
+
+`duckdb` (the standalone CLI, separate from the `duckdb` Python package in `requirements.txt`) isn't required to run the pipeline — dbt talks to DuckDB through the Python package. It's for browsing the data directly: `duckdb -ui dbt/manifold.duckdb` opens DuckDB's built-in local web UI (a real DuckDB feature, not a third-party tool) with a schema browser and SQL editor against whatever dbt has built so far. Note it holds an exclusive file lock while open — a second connection (e.g. a script inspecting the same file) needs the UI session closed first, or should query the underlying Parquet files directly instead.
 
 Both formulas are keg-only (Homebrew won't make them the system default automatically) — that's intentional here, not a bug to work around by linking them globally. This project references them by explicit path instead:
 
@@ -39,11 +42,13 @@ Worth keeping, not editing away — this is exactly the kind of thing worth bein
 
 Tried `pyenv install 3.14.6` first (building Python from source). Failed twice with the same linker error: `Undefined symbols for architecture arm64: "_libintl_bindtextdomain"` etc. — the build couldn't find `gettext`/`libintl`, which is installed via Homebrew but keg-only. Setting `LDFLAGS`/`CPPFLAGS` to point at it fixed most of the build but not the specific early-bootstrap step (`Programs/_freeze_module`) that failed — a known limitation where `python-build`'s bootstrap compile doesn't fully inherit those environment variables. Rather than keep fighting a source compile, switched to Homebrew's precompiled `python@3.14` formula instead, which sidesteps the whole class of problem — no compilation, no linker issues. `pyenv` is still installed and still useful for other projects; it just isn't what's managing Python for this one.
 
+## Python packages actually in use
+
+`requests`, `pyspark==4.2.0`, `dbt-core==1.12.0`, `dbt-duckdb==1.10.1` — all pinned in [requirements.txt](requirements.txt). Installed the latest of each, confirmed compatible with the Python version above before installing (dbt Core 1.12 officially supports Python 3.10–3.14 [2]; PySpark 4.2.0 requires `>=3.10` with no upper cap [1]).
+
 ## Not yet needed (will be added here when relevant)
 
 - Docker / minikube or kind / `kubectl` — Kubernetes phase
-- `dbt-core`, `dbt-duckdb` — dbt phase
-- `pyspark` — Spark phase
 
 ## References
 

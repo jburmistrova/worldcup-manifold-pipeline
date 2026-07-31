@@ -8,6 +8,7 @@ This script's job is extract + load only. Full raw payload per bet, no field
 selection — same reasoning as pull_markets.py and pull_market_answers.py.
 """
 import json
+import random
 import time
 
 import requests
@@ -16,6 +17,7 @@ BASE_URL = "https://api.manifold.markets/v0"
 MARKETS_PATH = "data/raw/worldcup_2026_markets.jsonl"
 OUTPUT_PATH = "data/raw/worldcup_2026_bets.jsonl"
 PAGE_LIMIT = 1000
+MAX_RETRIES = 5
 
 
 def get_bets_page(contract_id, after=None):
@@ -25,9 +27,22 @@ def get_bets_page(contract_id, after=None):
     params = {"contractId": contract_id, "limit": PAGE_LIMIT, "order": "asc"}
     if after:
         params["after"] = after
-    resp = requests.get(f"{BASE_URL}/bets", params=params, timeout=15)
-    resp.raise_for_status()
-    return resp.json()
+
+    # retry with exponential backoff + jitter on transient server errors (5xx)
+    # only - not hypothetical, hit a real 503 mid-run on 2026-07-31 that
+    # crashed the whole script after 125 of 621 markets, losing all progress.
+    # per [1] AWS's Exponential Backoff and Jitter, already cited in
+    # docs/data_engineering_best_practices.md but not actually built until now.
+    # 4xx errors are NOT retried - a client error won't fix itself by waiting.
+    for attempt in range(MAX_RETRIES):
+        resp = requests.get(f"{BASE_URL}/bets", params=params, timeout=15)
+        if resp.status_code < 500:
+            resp.raise_for_status()
+            return resp.json()
+        if attempt == MAX_RETRIES - 1:
+            resp.raise_for_status()
+        wait = (2 ** attempt) + random.uniform(0, 1)
+        time.sleep(wait)
 
 
 def get_all_bets(contract_id):

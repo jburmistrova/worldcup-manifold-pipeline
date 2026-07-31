@@ -10,3 +10,4 @@ Short, dated records of the non-obvious calls made on this project and why — n
 | [0004](0004-local-warehouse-duckdb-then-postgres.md) | Local warehouse: DuckDB first, Postgres-as-StatefulSet as phase 2 | Accepted |
 | [0005](0005-elt-not-etl-transformation-lives-in-dbt.md) | ELT, not ETL: transformation lives in dbt, not Spark | Accepted |
 | [0006](0006-raw-layer-jsonl-immutable.md) | Raw layer: JSON Lines, immutable, full API payloads (not CSV) | Accepted |
+| [0007](0007-search-limit-truncation.md) | Small `limit` values silently truncate `/v0/search-markets` results | Accepted |

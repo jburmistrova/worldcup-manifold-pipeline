@@ -57,8 +57,10 @@ This should be true, specific, and something I can defend line by line in an int
 
 Done (2026-07-30): data source confirmed; full ingestion working (`ingest/pull_markets.py`, `pull_market_answers.py`, `pull_bets.py`) writing raw JSON Lines (not CSV — see [ADR-0006](docs/decisions/0006-raw-layer-jsonl-immutable.md) for why); Spark extract+load step working (`spark/flatten_to_parquet.py`), producing typed Parquet for all three datasets; environment upgraded to current, non-EOL Python/Java (`requirements.md`); problem statement and architecture written up; 6 ADRs logged; README and best-practices checklist maintained throughout.
 
-Along the way: found and fixed a real pagination-instability bug (duplicate markets), a real mistake in how it was first fixed (mutated raw data in place — corrected), and two real CSV-parsing bugs that motivated switching the raw format to JSON entirely. All documented rather than quietly cleaned up — see `docs/data_dictionary.md`'s History section and ADR-0006.
+Along the way: found and fixed a real pagination-instability bug (duplicate markets), a real mistake in how it was first fixed (mutated raw data in place — corrected), two real CSV-parsing bugs that motivated switching the raw format to JSON entirely, and — while building `int_market_implied_probability` — a missing field (`answerId`, required to keep multi-choice markets' per-answer probability tracks separate) and a third real-trade filtering case (zero-amount seeding events breaking a VWAP calculation with `0/0`). All documented rather than quietly cleaned up — see `docs/data_dictionary.md`'s History section and ADR-0006.
 
-Next: dbt project setup against DuckDB — `stg_manifold_bets` (where the real-trade filtering finally gets implemented and tested) → `int_market_implied_probability` → `mart_market_efficiency` (core scope, per the Scope section above).
+Done: `dbt/` project set up against DuckDB — full staging layer (`stg_manifold_markets`, `stg_manifold_market_answers`, `stg_manifold_bets`) and `int_market_implied_probability` (running VWAP + repricing-jump ranking, correctly partitioned per market/answer), 16 passing tests.
+
+Next: `mart_market_efficiency` — core scope, the mart that actually answers the problem statement.
 
 Next: `/v0/bets` ingestion (trade-level history — needed for probability-over-time, not just snapshots), then the Spark job against DuckDB. See "Scope: core vs. stretch" above for what's actually required to reach a demoable state.

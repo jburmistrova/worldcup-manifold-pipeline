@@ -35,9 +35,14 @@ def flatten_market_answers(spark):
 
 
 def flatten_bets(spark):
+    # answerId: present (a real id) on multi-choice-market bets, entirely absent
+    # (not just null) on binary-market bets — each answer has its own independent
+    # probability track, so this is required to correctly group bets by which
+    # probability stream they belong to. Missing from the original field list;
+    # added after checking the raw payload directly rather than assuming.
     df = spark.read.json(f"{RAW_DIR}/worldcup_2026_bets.jsonl")
     return df.select(
-        "id", "contractId", "userId", "outcome", "amount", "shares",
+        "id", "contractId", "answerId", "userId", "outcome", "amount", "shares",
         "probBefore", "probAfter", "createdTime",
         "isFilled", "isCancelled", "isRedemption", "limitProb", "orderAmount",
     )

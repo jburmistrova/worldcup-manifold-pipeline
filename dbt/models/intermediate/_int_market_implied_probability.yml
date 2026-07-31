@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: int_market_implied_probability
+    description: >
+      One row per real trade, with a running VWAP and repricing-jump rank,
+      partitioned by (market_id, answer_id) so BINARY markets and each
+      answer of a MULTIPLE_CHOICE market get independent probability paths.
+    columns:
+      - name: bet_id
+        tests:
+          - unique
+          - not_null
+      - name: market_id
+        tests:
+          - not_null
+      - name: tick_number
+        tests:
+          - not_null

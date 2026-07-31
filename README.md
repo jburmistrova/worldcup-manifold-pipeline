@@ -40,7 +40,24 @@ This project intentionally uses more infrastructure than the workload strictly n
 
 ## How to run it
 
-_Coming as each stage is built — see [docs/architecture.md](docs/architecture.md#status) for current status._
+Ingestion, the Spark step, and the dbt staging layer all work end to end as of this writing. Marts aren't built yet — see `PROJECT_SPEC.md`'s "Scope: core vs. stretch."
+
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # see requirements.md for JAVA_HOME setup
+
+python ingest/pull_markets.py
+python ingest/pull_market_answers.py
+python ingest/pull_bets.py          # takes a few minutes — ~400K bet records
+
+python spark/flatten_to_parquet.py  # raw JSON -> typed Parquet
+
+cd dbt
+dbt build --profiles-dir .          # builds + tests the staging models
+```
+
+To browse the result: `duckdb -ui manifold.duckdb` (from inside `dbt/`) opens DuckDB's built-in local web UI — a schema browser and SQL editor against the same database file dbt just built into. See [requirements.md](requirements.md) for the CLI install.
 
 ## Data source
 

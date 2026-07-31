@@ -26,11 +26,28 @@ def search_markets(term, limit=100, offset=0):
 
 
 def fetch_all(term):
-    """Offset-based pagination against a search endpoint isn't guaranteed
-    stable across requests (e.g. ties in relevance ranking can reorder
-    results between pages) — confirmed empirically: an earlier run of this
-    script produced 63 duplicate market rows out of 451. Dedupe by id as
-    results come in rather than trust the API to never repeat a page.
+    """Two real, separate bugs found here, not one:
+
+    1. Small `limit` values (100, 200) silently truncate the result set —
+       confirmed empirically: at limit=100 or 200, sports-linked markets
+       (identifiable by a `sportsStartTimestamp` field) never appear at all,
+       no matter how many pages you paginate through. At limit=1000, a
+       single call cleanly returns everything (621 markets vs. the 389 this
+       script used to find — a 60% undercount). Root cause isn't confirmed
+       at the API-internals level, but the fix is: request the documented
+       max (1000) per call, not a small page size.
+    2. Separately, offset-based pagination isn't guaranteed stable across
+       requests (e.g. ties in relevance ranking can reorder results between
+       calls) — confirmed empirically: an earlier run produced 63 duplicate
+       market rows. Dedupe by id as results come in rather than trust the
+       API to never repeat a result. This is a known-unstable pattern in
+       general (offset pagination + a sort that can tie), not a bug
+       specific to Manifold — a careful client defends against it
+       regardless of whose API it is.
+
+    Kept the offset/pagination loop even though one call covers everything
+    at our current scale — defense in depth if a term ever exceeds 1000
+    results.
     """
 
     # offset and limit are the actual inputs to the api call
@@ -38,7 +55,7 @@ def fetch_all(term):
     markets = []
     seen_ids = set()
     offset = 0
-    limit = 100
+    limit = 1000
 
     # while True + break is the standard pattern here - we can't know if a page is the
     # last one until AFTER we've already fetched it, so there's nothing to check up front
