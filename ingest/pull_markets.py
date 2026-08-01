@@ -4,25 +4,32 @@ Writes the complete API response object per market — no field selection here.
 Deciding which fields matter is downstream work (Spark/dbt), not extraction.
 """
 import json
+import os
 import time
 
-import requests
+from retry_get import get_with_retry
 
 BASE_URL = "https://api.manifold.markets/v0"
-SEARCH_TERM = "World Cup 2026"
+# env-var override with the real default baked in, not the other way around -
+# this project only ever searches "World Cup 2026", but hardcoding it as a
+# Python constant means changing it means editing and redeploying code. Wired
+# through a Kubernetes ConfigMap (see k8s/configmap.yaml) so it's config, not
+# code, without changing behavior for anyone just running this locally.
+SEARCH_TERM = os.environ.get("SEARCH_TERM", "World Cup 2026")
 OUTPUT_PATH = "data/raw/worldcup_2026_markets.jsonl"
 
 
 def search_markets(term, limit=100, offset=0):
-    # response from a get for the api manifold
     # use params where we search "world cup", limit of 100, offset default is 0, but we increase it below
-    resp = requests.get(
+    # retry-with-backoff lives in retry_get.py, shared with the other two
+    # ingest scripts. Needed here for real: hit repeated 17-29s read timeouts
+    # against this exact endpoint under rapid repeated calls -- confirmed via
+    # a direct host-side test that it's real API slowness/throttling, not a
+    # container networking artifact, before writing this fix (see retry_get.py).
+    return get_with_retry(
         f"{BASE_URL}/search-markets",
         params={"term": term, "limit": limit, "offset": offset, "filter": "all"},
-        timeout=10,
     )
-    resp.raise_for_status()
-    return resp.json()
 
 
 def fetch_all(term):
@@ -102,6 +109,7 @@ def main():
     print(f"Fetched {len(markets)} markets for term {SEARCH_TERM!r}")
 
     # save to json
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "w") as f:
         for m in markets:
             f.write(json.dumps(m) + "\n")

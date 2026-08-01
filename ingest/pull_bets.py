@@ -8,16 +8,18 @@ This script's job is extract + load only. Full raw payload per bet, no field
 selection — same reasoning as pull_markets.py and pull_market_answers.py.
 """
 import json
-import random
+import os
 import time
 
-import requests
+from retry_get import get_with_retry
 
 BASE_URL = "https://api.manifold.markets/v0"
 MARKETS_PATH = "data/raw/worldcup_2026_markets.jsonl"
 OUTPUT_PATH = "data/raw/worldcup_2026_bets.jsonl"
-PAGE_LIMIT = 1000
-MAX_RETRIES = 5
+# 1000 is the value ADR-0007 confirmed is required to avoid silent pagination
+# truncation - env-var override exists for config flexibility, not because
+# this default is expected to change; see k8s/configmap.yaml.
+PAGE_LIMIT = int(os.environ.get("PAGE_LIMIT", "1000"))
 
 
 def get_bets_page(contract_id, after=None):
@@ -27,29 +29,9 @@ def get_bets_page(contract_id, after=None):
     params = {"contractId": contract_id, "limit": PAGE_LIMIT, "order": "asc"}
     if after:
         params["after"] = after
-
-    # retry with exponential backoff + jitter on transient server errors (5xx)
-    # only - not hypothetical, hit a real 503 mid-run on 2026-07-31 that
-    # crashed the whole script after 125 of 621 markets, losing all progress.
-    # per [1] AWS's Exponential Backoff and Jitter, already cited in
-    # docs/data_engineering_best_practices.md but not actually built until now.
-    # 4xx errors are NOT retried - a client error won't fix itself by waiting.
-    for attempt in range(MAX_RETRIES):
-        resp = requests.get(f"{BASE_URL}/bets", params=params, timeout=15)
-        # < 500 covers both success (2xx, just return it) and client errors
-        # (4xx) - raise_for_status() only actually raises on the 4xx case,
-        # a 2xx passes through and .json() returns normally
-        if resp.status_code < 500:
-            resp.raise_for_status()
-            return resp.json()
-        # got a 5xx. on the last allowed attempt, stop retrying and surface
-        # the real error instead of silently giving up
-        if attempt == MAX_RETRIES - 1:
-            resp.raise_for_status()
-        # 2**attempt: 1, 2, 4, 8, 16 seconds - growing gap between retries,
-        # plus up to 1s of random jitter so retries don't all land at once
-        wait = (2 ** attempt) + random.uniform(0, 1)
-        time.sleep(wait)
+    # retry-with-backoff lives in retry_get.py, shared with the other two
+    # ingest scripts - see that file for what it's actually retrying and why
+    return get_with_retry(f"{BASE_URL}/bets", params=params)
 
 
 def get_all_bets(contract_id):
@@ -97,6 +79,7 @@ def main():
     total_bets = 0
 
     # with our output path
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "w") as f:
         # loop through all the market ids - `i` here is just for the progress print below,
         # total_bets (separate variable) is what actually tracks the bet count

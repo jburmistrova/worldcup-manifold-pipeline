@@ -2,6 +2,8 @@
 docs/results.md. Standalone and reproducible — not a one-off; re-run this
 any time the mart changes and the chart updates to match.
 """
+import os
+
 import duckdb
 import matplotlib.pyplot as plt
 
@@ -50,6 +52,7 @@ def main():
     ax.set_aspect("equal")
 
     fig.tight_layout()
+    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     fig.savefig(OUT_PATH, dpi=150)
     print(f"Saved to {OUT_PATH}")
 

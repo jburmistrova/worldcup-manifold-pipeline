@@ -5,9 +5,10 @@ already carry a single top-level probability/resolution on the market
 object itself — there's nothing extra to fetch for them.
 """
 import json
+import os
 import time
 
-import requests
+from retry_get import get_with_retry
 
 BASE_URL = "https://api.manifold.markets/v0"
 MARKETS_PATH = "data/raw/worldcup_2026_markets.jsonl"
@@ -21,12 +22,10 @@ OUTPUT_PATH = "data/raw/worldcup_2026_market_answers.jsonl"
 # aren't yes/no - ex a match could be team1/team2/tie as 3 named answers - but that's
 # WHY multi-choice exists, not why we need this extra api call. those are 2 different facts)
 def get_market(market_id):
-    # response from a get api call
     # no params like pull_markets.py - just a path param, and no pagination needed
     # since it's a direct lookup of one specific market by its id
-    resp = requests.get(f"{BASE_URL}/market/{market_id}", timeout=10)
-    resp.raise_for_status()
-    return resp.json()
+    # retry-with-backoff lives in retry_get.py, shared with the other two ingest scripts
+    return get_with_retry(f"{BASE_URL}/market/{market_id}")
 
 
 def load_non_binary_market_ids():
@@ -49,6 +48,7 @@ def main():
     print(f"Fetching answer details for {len(market_ids)} non-BINARY markets")
 
     # open path - write incrementally as each market's answers come in, not all at once at the end
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "w") as f:
         fetched, skipped = 0, 0
         # for each market id
