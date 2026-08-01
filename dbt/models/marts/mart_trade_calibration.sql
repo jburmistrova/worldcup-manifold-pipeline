@@ -56,7 +56,9 @@ select
     b.market_id,
     qm.is_yes,
     (b.prob_before + b.prob_after) / 2 as prob_trade,
-    least(floor(((b.prob_before + b.prob_after) / 2) * 10) / 10, 0.9) as prob_bucket
+    -- shared macro (macros/prob_bucket.sql), same bucketing rule as
+    -- mart_market_efficiency applied to a different expression
+    {{ prob_bucket('(b.prob_before + b.prob_after) / 2') }} as prob_bucket
 from {{ ref('stg_manifold_bets') }} b
 inner join qualifying_markets qm on b.market_id = qm.market_id
 where b.answer_id is null

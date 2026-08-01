@@ -1,0 +1,50 @@
+# Runs the real pipeline (Spark -> dbt build+test) on every push, against a
+# small committed fixture (tests/fixtures/raw/) instead of the live Manifold
+# API. Deliberately NOT hitting the real API here: it's the external
+# dependency this project itself found to be slow/rate-limited under rapid
+# calls (see lessons_learned.md) -- CI that depends on a third-party API's
+# mood is exactly the kind of flaky CI worth avoiding, on top of there being
+# no reason to re-pull the same ~600 markets on every push anyway.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Java (PySpark requirement)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Seed data/raw/ from the committed fixture
+        run: |
+          mkdir -p data/raw
+          cp tests/fixtures/raw/*.jsonl data/raw/
+
+      - name: Spark: flatten raw JSON to Parquet
+        run: python spark/flatten_to_parquet.py
+
+      - name: dbt deps (installs dbt_utils, per dbt/packages.yml)
+        working-directory: dbt
+        run: dbt deps
+
+      - name: dbt build (staging -> intermediate -> marts, with tests)
+        working-directory: dbt
+        run: dbt build --profiles-dir .

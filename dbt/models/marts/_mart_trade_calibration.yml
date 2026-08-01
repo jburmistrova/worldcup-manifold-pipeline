@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: mart_trade_calibration
+    description: >
+      One row per real trade on a resolved BINARY market with 15+ distinct
+      traders, replicating Manifold's own published calibration methodology
+      for an apples-to-apples Brier score comparison against
+      mart_market_efficiency's resolution-time snapshot.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: bet_id
+        data_type: varchar
+        tests:
+          - not_null
+          - unique
+      - name: market_id
+        data_type: varchar
+        tests:
+          - not_null
+          # every trade has to trace back to a real, ingested BINARY market
+          - relationships:
+              arguments:
+                to: ref('stg_manifold_markets')
+                field: market_id
+      - name: is_yes
+        data_type: boolean
+        tests:
+          - not_null
+      - name: prob_trade
+        data_type: double
+        tests:
+          - not_null
+      - name: prob_bucket
+        data_type: double
+        tests:
+          - not_null

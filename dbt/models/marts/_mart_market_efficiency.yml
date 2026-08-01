@@ -7,16 +7,59 @@ models:
       answer), with resolution-time predicted probability, actual outcome,
       and a decile bucket — the core calibration and favorite-longshot-bias
       analysis table.
+    # Contract enforced: dbt checks the model's actual output against the
+    # column/type list below at build time and refuses to build if they
+    # don't match -- catches a renamed or dropped column, or a type change
+    # (e.g. predicted_prob silently becoming a string), before it can reach
+    # a mart or the chart/analysis scripts reading from it, instead of only
+    # finding out downstream. Every column needs an explicit data_type for
+    # this to work, not just the ones with tests.
+    config:
+      contract:
+        enforced: true
+    tests:
+      # neither market_id nor answer_id is unique alone (answer_id is NULL
+      # for every BINARY row, and one market can have several MULTIPLE_CHOICE
+      # answers) -- this is the actual uniqueness guarantee for this table,
+      # a real dbt_utils test rather than a hand-rolled one, since checking
+      # uniqueness across a column combination isn't one of dbt-core's 4
+      # built-in generic tests.
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - market_id
+              - answer_id
     columns:
       - name: market_id
+        data_type: varchar
         tests:
           - not_null
+          # referential integrity: every prediction (whether it came from a
+          # BINARY market directly or a MULTIPLE_CHOICE answer) has to trace
+          # back to a real, ingested market. `relationships` is one of
+          # dbt-core's own 4 built-in generic tests (not dbt_utils).
+          - relationships:
+              arguments:
+                to: ref('stg_manifold_markets')
+                field: market_id
+      - name: answer_id
+        data_type: varchar
+        description: "NULL for BINARY markets -- only MULTIPLE_CHOICE answers have one."
+      - name: label
+        data_type: varchar
       - name: predicted_prob
+        data_type: double
         tests:
           - not_null
       - name: is_yes
+        data_type: boolean
         tests:
           - not_null
+      - name: volume
+        data_type: double
+      - name: liquidity_total
+        data_type: double
       - name: prob_bucket
+        data_type: double
         tests:
           - not_null

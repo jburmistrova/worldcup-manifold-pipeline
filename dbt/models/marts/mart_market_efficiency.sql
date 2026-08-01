@@ -60,7 +60,9 @@ select
     liquidity_total,
     -- decile buckets (0.0-0.1, 0.1-0.2, ... 0.9-1.0), matching how
     -- Manifold's own published platform-wide calibration is bucketed, for
-    -- a like-for-like comparison rather than an arbitrary bucket width
-    least(floor(predicted_prob * 10) / 10, 0.9) as prob_bucket
+    -- a like-for-like comparison rather than an arbitrary bucket width.
+    -- Shared macro (macros/prob_bucket.sql) -- mart_trade_calibration needs
+    -- the exact same rule applied to a different expression.
+    {{ prob_bucket('predicted_prob') }} as prob_bucket
 
 from unioned
