@@ -71,7 +71,7 @@ Not done here, and worth being explicit about rather than implying this is the f
 ## Reproduce it
 
 ```bash
-cd dbt && dbt build --profiles-dir .
+cd dbt && dbt deps && dbt build --profiles-dir .
 cd .. && python analysis/plot_calibration.py
 python analysis/compute_calibration_metrics.py
 ```

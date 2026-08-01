@@ -54,12 +54,16 @@ python ingest/pull_bets.py          # takes 10-15 minutes — ~1.2M bet records
 python spark/flatten_to_parquet.py  # raw JSON -> typed Parquet
 
 cd dbt
+dbt deps                            # installs dbt_utils (see dbt/packages.yml)
 dbt build --profiles-dir .          # builds + tests staging, intermediate, and marts
 
-cd .. && python analysis/plot_calibration.py   # regenerates docs/images/calibration_chart.png
+cd .. && python analysis/plot_calibration.py           # regenerates docs/images/calibration_chart.png
+python analysis/compute_calibration_metrics.py         # Brier score + liquidity-tier numbers behind docs/results.md
 ```
 
 To browse the data directly: `duckdb -ui manifold.duckdb` (from inside `dbt/`) opens DuckDB's built-in local web UI — a schema browser and SQL editor against the same database file dbt just built into. See [requirements.md](requirements.md) for the CLI install.
+
+To browse the project's structure instead of the data — model lineage graph, column-level descriptions, which models depend on which: `dbt docs generate --profiles-dir . && dbt docs serve` (from inside `dbt/`) builds and serves dbt's own documentation site from the `description:` fields already written in each model's `schema.yml`.
 
 ## Data source
 
