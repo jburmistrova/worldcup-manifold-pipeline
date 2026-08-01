@@ -1,0 +1,17 @@
+# Externalizes the ingest scripts' tunables so they're config, not code -
+# changing the search term, page size, or retry count means editing this
+# file and re-applying it, not editing Python and rebuilding the image.
+# Values here match the defaults already baked into the scripts (see
+# ingest/pull_markets.py, ingest/pull_bets.py, ingest/retry_get.py) -
+# this ConfigMap doesn't change behavior, it just makes the values visible
+# and changeable from outside the container.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: worldcup-pipeline-config
+data:
+  SEARCH_TERM: "World Cup 2026"
+  # 1000, not smaller - ADR-0007 found smaller values silently truncate
+  # /v0/search-markets results with zero errors raised
+  PAGE_LIMIT: "1000"
+  MAX_RETRIES: "5"

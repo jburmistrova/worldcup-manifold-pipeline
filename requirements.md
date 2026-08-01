@@ -33,7 +33,7 @@ rm -rf venv
 /usr/local/opt/python@3.14/bin/python3.14 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # then fill in JAVA_HOME (already defaulted) and any secrets
+cp .env.example .env   # JAVA_HOME is already defaulted; no secrets needed (Manifold's API is public, no auth)
 ```
 
 ## What broke the first time
@@ -46,9 +46,31 @@ Tried `pyenv install 3.14.6` first (building Python from source). Failed twice w
 
 `requests`, `pyspark==4.2.0`, `dbt-core==1.12.0`, `dbt-duckdb==1.10.1` — all pinned in [requirements.txt](requirements.txt). Installed the latest of each, confirmed compatible with the Python version above before installing (dbt Core 1.12 officially supports Python 3.10–3.14 [2]; PySpark 4.2.0 requires `>=3.10` with no upper cap [1]).
 
+## Kubernetes tooling
+
+| Tool | Version | Why |
+|---|---|---|
+| Docker Desktop | 4.84.0 (arm64) | Container runtime, and what `docker build`/`docker run` talk to. Chosen over Colima specifically for resume/interview legibility — the `docker` CLI experience is identical either way (Colima just swaps the backend daemon), but "Docker Desktop" is the name every interviewer recognizes on sight; Colima reads as an insider's substitute that only lands with someone already deep in the weeds. |
+| minikube | 1.38.1 | Local single-node Kubernetes cluster. Chosen over `kind` for the same reason: it's the tool featured in Kubernetes' own official "Learn Kubernetes Basics" tutorial, the most broadly recognized name for "I've run a local cluster." `kind` is the more specialized choice — what the Kubernetes project itself uses for CI and operator testing — which reads better to a platform-team specialist but doesn't carry the same broad recognition. |
+| kubectl | 1.36.3 | The Kubernetes CLI, installed as a `minikube` dependency. |
+
+```bash
+brew install --cask docker
+brew install minikube kubectl
+minikube start --driver=docker
+```
+
+Opening Docker.app once to complete first-run setup (accept its license, install a privileged helper) is GUI-only and can't be scripted — has to happen by hand before `minikube start` will find a working Docker daemon.
+
+## What broke the first time (Kubernetes setup)
+
+This machine has **two parallel Homebrew installations**: a legacy Intel one at `/usr/local` (first on `PATH`) and a native Apple Silicon one at `/opt/homebrew`. Plain `brew install --cask docker` resolved to the Intel `brew`, which silently fetched the x86_64 build of Docker Desktop — no error at install time, since the download and install steps don't check the host architecture against the cask's. It only surfaced when the app actually launched: an immediate crash, `checking compatibility: required compatibility check: This is the Intel version of Docker Desktop`, found in `~/Library/Containers/com.docker.docker/Data/log/host/com.docker.backend.log`.
+
+Fixed by uninstalling the Intel build and reinstalling explicitly through the arm64 Homebrew (`/opt/homebrew/bin/brew install --cask docker`); `minikube` and `kubectl` were installed the same explicit way from the start to sidestep the same bug rather than find it again per tool. `PATH` itself wasn't reordered — same philosophy as pointing at Python/Java by explicit path above rather than trusting what happens to be linked as the default.
+
 ## Not yet needed (will be added here when relevant)
 
-- Docker / minikube or kind / `kubectl` — Kubernetes phase
+None currently — every tool this project uses is listed above.
 
 ## References
 

@@ -1,0 +1,45 @@
+# A Job, not a Deployment or CronJob (see ADR-0003): this runs
+# ingest -> Spark -> dbt -> analysis once, to completion, and stops. There's
+# nothing to keep "always up" (not a service) and nothing to repeat on a
+# schedule (the tournament's over, this is a one-time backfill).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: worldcup-pipeline
+spec:
+  # If a pod fails (e.g. a transient 5xx from Manifold's API that outlasted
+  # pull_bets.py's own retry-with-backoff), the Job controller creates a
+  # fresh pod and tries again, up to this many times, before giving up and
+  # marking the Job failed.
+  backoffLimit: 3
+  # restartPolicy: Never (rather than OnFailure) means a failed attempt gets
+  # a brand-new pod instead of an in-place container restart -- each attempt
+  # gets its own clean logs, and the whole pipeline reruns from scratch,
+  # which is safe here since every ingest script overwrites its output file
+  # rather than appending (see data_engineering_best_practices.md's
+  # "idempotent re-runs" row).
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: pipeline
+          image: worldcup-pipeline:latest
+          # built locally via `docker build`, loaded into minikube's own
+          # image store via `minikube image load` -- never pushed to a
+          # registry, so there's nothing to pull.
+          imagePullPolicy: Never
+          # config lives in the environment, not hardcoded in the image -
+          # see k8s/configmap.yaml. Apply that before this Job.
+          envFrom:
+            - configMapRef:
+                name: worldcup-pipeline-config
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+      # safety cap: if something hangs (e.g. a network call that never
+      # times out), stop the pod rather than let it run indefinitely.
+      activeDeadlineSeconds: 1800
