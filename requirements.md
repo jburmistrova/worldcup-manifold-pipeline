@@ -68,6 +68,8 @@ This machine has **two parallel Homebrew installations**: a legacy Intel one at 
 
 Fixed by uninstalling the Intel build and reinstalling explicitly through the arm64 Homebrew (`/opt/homebrew/bin/brew install --cask docker`); `minikube` and `kubectl` were installed the same explicit way from the start to sidestep the same bug rather than find it again per tool. `PATH` itself wasn't reordered. Same philosophy as pointing at Python/Java by explicit path above rather than trusting what happens to be linked as the default.
 
+**Second, unrelated snag, at the actual `kubectl apply` deployment (2026-08-02):** Docker Desktop wouldn't open, no error, no window, nothing. `ps aux` showed why: three `com.docker.backend` processes still running from a session days earlier, with no main Docker Desktop app process attached to them at all. A fresh launch had nothing to attach to, so it silently did nothing. Fixed by killing the stale backend processes directly (`kill`, then `kill -9` for the two that ignored `SIGTERM`) and relaunching; the app came up clean with a full process tree on the first try afterward. The lesson from the read-timeout bug above applies again here: a missing symptom (no error, no crash log, no dialog) isn't the same as nothing being wrong, `ps aux` found what a GUI retry loop wouldn't have.
+
 ## Not yet needed (will be added here when relevant)
 
 None currently. Every tool this project uses is listed above.

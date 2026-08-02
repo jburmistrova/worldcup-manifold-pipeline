@@ -42,7 +42,7 @@ This project intentionally uses more infrastructure than the workload strictly n
 
 ## How to run it
 
-Everything except the Kubernetes deployment works end to end as of this writing.
+Locally, directly on your machine:
 
 ```bash
 python -m venv venv && source venv/bin/activate
@@ -62,6 +62,21 @@ dbt build --profiles-dir .          # builds + tests staging, intermediate, and 
 cd .. && python analysis/plot_calibration.py           # regenerates docs/images/calibration_chart.png
 python analysis/compute_calibration_metrics.py         # Brier score + liquidity-tier numbers behind docs/results.md
 ```
+
+Or as a Kubernetes Job, on a local cluster (minikube, tested; kind should work identically):
+
+```bash
+docker build -t worldcup-pipeline:latest .
+minikube start --driver=docker
+minikube image load worldcup-pipeline:latest   # no registry involved, see k8s/job.yaml
+
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/job.yaml
+kubectl logs -f -l job-name=worldcup-pipeline   # watch it run
+kubectl get jobs                                # STATUS: Complete when done, ~25-30 min
+```
+
+Both run the identical pipeline (same `run_pipeline.sh` entrypoint); the Kubernetes path just runs it inside a pod instead of your shell. See [ADR-0003](docs/decisions/0003-kubernetes-job-not-cronjob-or-deployment.md) for why this is a Job, not a Deployment or CronJob.
 
 To browse the data directly: `duckdb -ui manifold.duckdb` (from inside `dbt/`) opens DuckDB's built-in local web UI, a schema browser and SQL editor against the same database file dbt just built into. See [requirements.md](requirements.md) for the CLI install.
 
