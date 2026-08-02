@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: mart_outright_odds_over_time
+    description: >
+      How the tournament-winner outright contract repriced over the course
+      of the tournament, one row per real trade on each country's answer.
+      Scoped to the single dominant "who wins the World Cup" market by real
+      trading volume, out of around 15 near-duplicate candidates (see
+      ADR-0009), not the whole population of similarly-worded markets.
+    config:
+      contract:
+        enforced: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - bet_id
+    columns:
+      - name: market_id
+        data_type: varchar
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_manifold_markets')
+                field: market_id
+      - name: answer_id
+        data_type: varchar
+        tests:
+          - not_null
+      - name: team
+        data_type: varchar
+        tests:
+          - not_null
+      - name: is_winner
+        data_type: boolean
+        tests:
+          - not_null
+      - name: bet_id
+        data_type: varchar
+        tests:
+          - not_null
+          - unique
+      - name: created_at
+        data_type: timestamp
+        tests:
+          - not_null
+      - name: tick_number
+        data_type: bigint
+        tests:
+          - not_null
+      - name: prob_before
+        data_type: double
+        tests:
+          - not_null
+      - name: prob_after
+        data_type: double
+        tests:
+          - not_null
+      - name: prob_vwap_running
+        data_type: double
+        tests:
+          - not_null
+      - name: jump_rank
+        data_type: bigint
+        tests:
+          - not_null

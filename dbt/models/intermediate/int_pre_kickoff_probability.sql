@@ -11,48 +11,13 @@
 -- Markets/answers with zero trades before kickoff (all activity happened
 -- after kickoff, e.g. live in-play betting) are correctly absent here, not
 -- guessed at.
+--
+-- The market-level-to-answer fan-out this needs (see int_answer_kickoff_times
+-- for why it's needed at all) used to live inline here. Extracted once
+-- mart_match_price_history needed the identical fan-out, so it isn't
+-- maintained in two places. See ADR-0009.
 
-with market_level_kickoffs as (
-
-    -- kickoff times attached at the market level (the clean-format
-    -- "TUN vs JPN" markets) apply to EVERY answer under that market, not
-    -- literally to a row where answer_id is NULL. These are
-    -- MULTIPLE_CHOICE markets, and every real bet on a MULTIPLE_CHOICE
-    -- market carries a real, non-null answer_id (see stg_manifold_bets) --
-    -- there's no such thing as an answer_id-is-NULL trade to match against
-    -- here, so this has to fan the market-level kickoff time out to each
-    -- of that market's real answers instead.
-    select
-        k.market_id,
-        p.answer_id,
-        k.openfootball_kickoff_at
-    from {{ ref('int_market_kickoff_times') }} k
-    inner join (
-        select distinct market_id, answer_id
-        from {{ ref('int_market_implied_probability') }}
-    ) p
-        on k.market_id = p.market_id
-    where k.answer_id is null
-
-),
-
-answer_level_kickoffs as (
-
-    -- the 102 Mega-Market answers already carry their own specific
-    -- answer_id in int_market_kickoff_times, no fan-out needed
-    select market_id, answer_id, openfootball_kickoff_at
-    from {{ ref('int_market_kickoff_times') }}
-    where answer_id is not null
-
-),
-
-all_kickoffs as (
-    select * from market_level_kickoffs
-    union all
-    select * from answer_level_kickoffs
-),
-
-pre_kickoff_ticks as (
+with pre_kickoff_ticks as (
 
     select
         p.market_id,
@@ -64,9 +29,9 @@ pre_kickoff_ticks as (
             order by p.created_at desc
         ) as recency_rank
     from {{ ref('int_market_implied_probability') }} p
-    inner join all_kickoffs k
+    inner join {{ ref('int_answer_kickoff_times') }} k
         on p.market_id = k.market_id
-        and p.answer_id is not distinct from k.answer_id
+        and p.answer_id = k.answer_id
     where p.created_at <= k.openfootball_kickoff_at
 
 )

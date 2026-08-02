@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: int_answer_kickoff_times
+    description: >
+      int_market_kickoff_times' kickoff times, with market-level entries
+      fanned out to every real answer_id under that market, so every
+      consumer joins against a real (market_id, answer_id) pair rather than
+      handling the fan-out itself. Feeds int_pre_kickoff_probability and
+      mart_match_price_history. See ADR-0008 and ADR-0009.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - market_id
+              - answer_id
+    columns:
+      - name: answer_id
+        tests:
+          - not_null
+      - name: openfootball_kickoff_at
+        tests:
+          - not_null

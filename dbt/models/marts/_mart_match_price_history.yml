@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: mart_match_price_history
+    description: >
+      Win-probability movement through each real single-match market or
+      answer (see ADR-0008), one row per real trade, with team names and
+      kickoff time attached for a readable chart. Scoped to the same
+      validated matches as mart_pre_kickoff_calibration, not a separate
+      matching pass.
+    config:
+      contract:
+        enforced: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - bet_id
+    columns:
+      - name: market_id
+        data_type: varchar
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_manifold_markets')
+                field: market_id
+      - name: answer_id
+        data_type: varchar
+      - name: schedule_team1
+        data_type: varchar
+        tests:
+          - not_null
+      - name: schedule_team2
+        data_type: varchar
+        tests:
+          - not_null
+      - name: round
+        data_type: varchar
+      - name: openfootball_kickoff_at
+        data_type: timestamp
+        tests:
+          - not_null
+      - name: bet_id
+        data_type: varchar
+        tests:
+          - not_null
+          - unique
+      - name: created_at
+        data_type: timestamp
+        tests:
+          - not_null
+      - name: tick_number
+        data_type: bigint
+        tests:
+          - not_null
+      - name: prob_before
+        data_type: double
+        tests:
+          - not_null
+      - name: prob_after
+        data_type: double
+        tests:
+          - not_null
+      - name: prob_vwap_running
+        data_type: double
+        tests:
+          - not_null
+      - name: jump_rank
+        data_type: bigint
+        tests:
+          - not_null
