@@ -11,3 +11,4 @@ dbt/*.duckdb
 dbt/*.duckdb.wal
 dbt/dbt_packages/
 dbt/.user.yml
+to-do.md
