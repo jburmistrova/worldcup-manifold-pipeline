@@ -2,7 +2,7 @@
 # small committed fixture (tests/fixtures/raw/) instead of the live Manifold
 # API. Deliberately NOT hitting the real API here: it's the external
 # dependency this project itself found to be slow/rate-limited under rapid
-# calls (see lessons_learned.md) -- CI that depends on a third-party API's
+# calls (see lessons_learned.md). CI that depends on a third-party API's
 # mood is exactly the kind of flaky CI worth avoiding, on top of there being
 # no reason to re-pull the same ~600 markets on every push anyway.
 name: CI

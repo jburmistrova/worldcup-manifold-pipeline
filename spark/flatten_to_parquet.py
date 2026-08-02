@@ -1,25 +1,25 @@
 """Spark extract+load step: read the raw JSON Lines ingestion files, select
 the fields this project actually needs, write Parquet. No business logic
-(no probability reconstruction, no VWAP, no repricing detection — that's
+(no probability reconstruction, no VWAP, no repricing detection, that's
 dbt's job per ADR-0005).
 
 Unlike the earlier CSV-based version of this script, JSON carries real
 native types (booleans are actual booleans, numbers are actual numbers), so
-there's no defensive string-then-cast dance here — that entire class of
+there's no defensive string-then-cast dance here. That entire class of
 problem (see ADR-0006) doesn't exist for a properly-typed source format.
 
 Correcting an earlier claim in this docstring: "schema inference is safe
-because JSON is self-describing" -- per-value, yes, but Spark's schema
+because JSON is self-describing." Per-value, yes, but Spark's schema
 *inference* still guesses a column's type from a sample of the actual data,
 not from any fixed contract, and that guess can differ across samples. Found
 for real, not hypothetically: on the small CI fixture (tests/fixtures/raw/),
 every totalLiquidity value happens to be a whole number, so Spark inferred
 BIGINT; on the full dataset, fractional values (e.g. 142.857...) make it
-infer DOUBLE -- same field, same source, different inferred type depending
+infer DOUBLE. Same field, same source, different inferred type depending
 on which rows happened to be in the sample. That silently broke
 mart_market_efficiency's enforced contract (data_type: double) the first
 time CI ran against the fixture. Fixed by casting every real-valued
-business field explicitly instead of trusting inference for them -- the
+business field explicitly instead of trusting inference for them. The
 type is now guaranteed regardless of what a given sample happens to contain.
 """
 from pyspark.sql import SparkSession
@@ -57,7 +57,7 @@ def flatten_market_answers(spark):
 
 def flatten_bets(spark):
     # answerId: present (a real id) on multi-choice-market bets, entirely absent
-    # (not just null) on binary-market bets — each answer has its own independent
+    # (not just null) on binary-market bets. Each answer has its own independent
     # probability track, so this is required to correctly group bets by which
     # probability stream they belong to. Missing from the original field list;
     # added after checking the raw payload directly rather than assuming.

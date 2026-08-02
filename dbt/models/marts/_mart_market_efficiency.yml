@@ -5,11 +5,11 @@ models:
     description: >
       One row per resolved prediction (BINARY market or MULTIPLE_CHOICE
       answer), with resolution-time predicted probability, actual outcome,
-      and a decile bucket — the core calibration and favorite-longshot-bias
+      and a decile bucket, the core calibration and favorite-longshot-bias
       analysis table.
     # Contract enforced: dbt checks the model's actual output against the
     # column/type list below at build time and refuses to build if they
-    # don't match -- catches a renamed or dropped column, or a type change
+    # don't match. Catches a renamed or dropped column, or a type change
     # (e.g. predicted_prob silently becoming a string), before it can reach
     # a mart or the chart/analysis scripts reading from it, instead of only
     # finding out downstream. Every column needs an explicit data_type for
@@ -20,7 +20,7 @@ models:
     tests:
       # neither market_id nor answer_id is unique alone (answer_id is NULL
       # for every BINARY row, and one market can have several MULTIPLE_CHOICE
-      # answers) -- this is the actual uniqueness guarantee for this table,
+      # answers). This is the actual uniqueness guarantee for this table,
       # a real dbt_utils test rather than a hand-rolled one, since checking
       # uniqueness across a column combination isn't one of dbt-core's 4
       # built-in generic tests.
@@ -44,7 +44,7 @@ models:
                 field: market_id
       - name: answer_id
         data_type: varchar
-        description: "NULL for BINARY markets -- only MULTIPLE_CHOICE answers have one."
+        description: "NULL for BINARY markets. Only MULTIPLE_CHOICE answers have one."
       - name: label
         data_type: varchar
       - name: predicted_prob

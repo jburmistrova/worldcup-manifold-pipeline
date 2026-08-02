@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# The container's entrypoint -- runs the exact same steps as README's "How to
+# The container's entrypoint. Runs the exact same steps as README's "How to
 # run it", in order, inside the pod. `set -e` means any real failure (a
 # non-zero exit from any command) stops the script and exits non-zero, which
-# is what lets the Kubernetes Job's backoffLimit retry logic actually work --
-# a script that swallowed errors and kept going would look like a completed
+# is what lets the Kubernetes Job's backoffLimit retry logic actually work.
+# A script that swallowed errors and kept going would look like a completed
 # Job even after a real failure.
 set -euo pipefail
 

@@ -9,13 +9,13 @@ drifting across three files with no reason for them to differ.
 
 Retries on both transient 5xx responses and on request-level failures
 (timeouts, dropped connections) that raise before any response exists to
-check a status code on -- both are transient in the same sense (retrying is
+check a status code on. Both are transient in the same sense (retrying is
 likely to work), so both get identical backoff treatment. 4xx errors are
-never retried -- a client error won't fix itself by waiting.
+never retried. A client error won't fix itself by waiting.
 
 The timeout failures this was actually needed for turned out not to be a
 Docker networking artifact, even though that was the first, plausible-looking
-guess -- confirmed by re-running the same request directly from the host,
+guess. Confirmed by re-running the same request directly from the host,
 outside any container, and getting the same 17-29 second response times.
 Manifold's /v0/search-markets is genuinely slow (or throttled) under rapid
 repeated calls; the fix is the same either way (retry + a realistic timeout),

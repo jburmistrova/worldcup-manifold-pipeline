@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: stg_manifold_markets
-    description: One row per World Cup 2026 market. No filtering — every market from the source is included.
+    description: One row per World Cup 2026 market. No filtering, every market from the source is included.
     columns:
       - name: market_id
         tests:

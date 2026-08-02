@@ -1,7 +1,7 @@
 -- Reconstructs the probability path per (market_id, answer_id), computes a
 -- running volume-weighted average probability, and ranks each trade by how
 -- big a repricing jump it caused. Partitioned by (market_id, answer_id)
--- together, not market_id alone — MULTIPLE_CHOICE markets have one
+-- together, not market_id alone. MULTIPLE_CHOICE markets have one
 -- independent probability track per answer; mixing them would produce a
 -- meaningless probability path. See stg_manifold_bets for why answer_id is
 -- null for BINARY markets and how that's handled correctly by this grouping.

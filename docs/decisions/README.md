@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Short, dated records of the non-obvious calls made on this project and why — not the *what* (the code shows that), the *why*, including what was given up. New ones get added as decisions get made, not written retroactively to look tidy.
+Short, dated records of the non-obvious calls made on this project and why. Not the *what* (the code shows that), the *why*, including what was given up. New ones get added as decisions get made, not written retroactively to look tidy.
 
 | ADR | Decision | Status |
 |---|---|---|

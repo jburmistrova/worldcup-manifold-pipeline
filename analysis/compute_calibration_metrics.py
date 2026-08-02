@@ -1,6 +1,6 @@
 """Computes the Brier-score numbers behind docs/results.md's Question 1
 and Question 2 (liquidity) sections. Standalone and reproducible, same as
-plot_calibration.py -- re-run any time the marts change.
+plot_calibration.py. Re-run any time the marts change.
 """
 import duckdb
 

@@ -1,8 +1,8 @@
 """For every non-BINARY market, pull /v0/market/{id} and save each raw
-answer object as its own JSON line (full payload, no field selection —
+answer object as its own JSON line (full payload, no field selection,
 same reasoning as pull_markets.py). BINARY markets are skipped since they
 already carry a single top-level probability/resolution on the market
-object itself — there's nothing extra to fetch for them.
+object itself. There's nothing extra to fetch for them.
 """
 import json
 import os

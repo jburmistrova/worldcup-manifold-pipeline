@@ -13,7 +13,7 @@ spec:
   # marking the Job failed.
   backoffLimit: 3
   # restartPolicy: Never (rather than OnFailure) means a failed attempt gets
-  # a brand-new pod instead of an in-place container restart -- each attempt
+  # a brand-new pod instead of an in-place container restart. Each attempt
   # gets its own clean logs, and the whole pipeline reruns from scratch,
   # which is safe here since every ingest script overwrites its output file
   # rather than appending (see data_engineering_best_practices.md's
@@ -25,11 +25,11 @@ spec:
         - name: pipeline
           image: worldcup-pipeline:latest
           # built locally via `docker build`, loaded into minikube's own
-          # image store via `minikube image load` -- never pushed to a
+          # image store via `minikube image load`. Never pushed to a
           # registry, so there's nothing to pull.
           imagePullPolicy: Never
-          # config lives in the environment, not hardcoded in the image -
-          # see k8s/configmap.yaml. Apply that before this Job.
+          # config lives in the environment, not hardcoded in the image.
+          # See k8s/configmap.yaml. Apply that before this Job.
           envFrom:
             - configMapRef:
                 name: worldcup-pipeline-config

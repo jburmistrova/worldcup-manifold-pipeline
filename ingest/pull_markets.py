@@ -1,6 +1,6 @@
 """Search Manifold for World Cup 2026 markets, save full raw payloads as JSON Lines.
 
-Writes the complete API response object per market — no field selection here.
+Writes the complete API response object per market. No field selection here.
 Deciding which fields matter is downstream work (Spark/dbt), not extraction.
 """
 import json
@@ -23,7 +23,7 @@ def search_markets(term, limit=100, offset=0):
     # use params where we search "world cup", limit of 100, offset default is 0, but we increase it below
     # retry-with-backoff lives in retry_get.py, shared with the other two
     # ingest scripts. Needed here for real: hit repeated 17-29s read timeouts
-    # against this exact endpoint under rapid repeated calls -- confirmed via
+    # against this exact endpoint under rapid repeated calls. Confirmed via
     # a direct host-side test that it's real API slowness/throttling, not a
     # container networking artifact, before writing this fix (see retry_get.py).
     return get_with_retry(
@@ -35,25 +35,25 @@ def search_markets(term, limit=100, offset=0):
 def fetch_all(term):
     """Two real, separate bugs found here, not one:
 
-    1. Small `limit` values (100, 200) silently truncate the result set —
-       confirmed empirically: at limit=100 or 200, sports-linked markets
+    1. Small `limit` values (100, 200) silently truncate the result set.
+       Confirmed empirically: at limit=100 or 200, sports-linked markets
        (identifiable by a `sportsStartTimestamp` field) never appear at all,
        no matter how many pages you paginate through. At limit=1000, a
        single call cleanly returns everything (621 markets vs. the 389 this
-       script used to find — a 60% undercount). Root cause isn't confirmed
+       script used to find, a 60% undercount). Root cause isn't confirmed
        at the API-internals level, but the fix is: request the documented
        max (1000) per call, not a small page size.
     2. Separately, offset-based pagination isn't guaranteed stable across
        requests (e.g. ties in relevance ranking can reorder results between
-       calls) — confirmed empirically: an earlier run produced 63 duplicate
+       calls). Confirmed empirically: an earlier run produced 63 duplicate
        market rows. Dedupe by id as results come in rather than trust the
        API to never repeat a result. This is a known-unstable pattern in
        general (offset pagination + a sort that can tie), not a bug
-       specific to Manifold — a careful client defends against it
+       specific to Manifold. A careful client defends against it
        regardless of whose API it is.
 
     Kept the offset/pagination loop even though one call covers everything
-    at our current scale — defense in depth if a term ever exceeds 1000
+    at our current scale. Defense in depth if a term ever exceeds 1000
     results.
     """
 

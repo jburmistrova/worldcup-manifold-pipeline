@@ -1,11 +1,11 @@
 """Full bet (trade) history for every market, as raw JSON Lines.
 
-Pulls everything /v0/bets returns, unfiltered — including cancelled limit
+Pulls everything /v0/bets returns, unfiltered, including cancelled limit
 orders and share redemptions, which are not real price-moving trades. That
 filtering is a business-logic decision (what counts as a "real" trade), so
 per ADR-0005 it belongs in dbt's staging model (stg_manifold_bets), not here.
 This script's job is extract + load only. Full raw payload per bet, no field
-selection — same reasoning as pull_markets.py and pull_market_answers.py.
+selection, same reasoning as pull_markets.py and pull_market_answers.py.
 """
 import json
 import os

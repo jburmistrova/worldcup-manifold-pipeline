@@ -14,7 +14,7 @@
 --
 -- We use every qualifying trade rather than a 2% sample. Manifold subsamples
 -- for computational cost, recomputing this hourly across their entire
--- platform's trade history -- a performance tradeoff that doesn't apply
+-- platform's trade history, a performance tradeoff that doesn't apply
 -- here at this dataset's scale. Using the full population is strictly more
 -- precise, not a deviation from the method's intent.
 

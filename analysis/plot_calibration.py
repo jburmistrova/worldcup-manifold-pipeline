@@ -1,5 +1,5 @@
 """Reads mart_market_efficiency, produces the calibration chart used in
-docs/results.md. Standalone and reproducible — not a one-off; re-run this
+docs/results.md. Standalone and reproducible, not a one-off; re-run this
 any time the mart changes and the chart updates to match.
 """
 import os

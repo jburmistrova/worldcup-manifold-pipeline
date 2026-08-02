@@ -3,17 +3,17 @@ version: 2
 models:
   - name: stg_manifold_bets
     description: >
-      Real, filled, non-cancelled trades only — cancelled limit orders and
+      Real, filled, non-cancelled trades only, cancelled limit orders and
       redemptions filtered out here (see the model's own comment for why
       this is the right layer for that decision). Incremental, keyed on
-      bet_id — the one staging model where that's worth doing, since it's
+      bet_id, the one staging model where that's worth doing, since it's
       the largest raw dataset (1.17M+ rows). Verified both directions: a
       no-op rerun with no new source data adds zero rows, and a synthetic
       late-arriving bet gets added as exactly one new row with no
       duplication (see the model's own comment for the reasoning). Note for
       anyone re-running this locally: because
       incremental models only ever append, correcting or removing rows from
-      the underlying Parquet requires `--full-refresh` to take effect — a
+      the underlying Parquet requires `--full-refresh` to take effect. A
       plain rerun won't retroactively drop anything already loaded.
     columns:
       - name: bet_id
