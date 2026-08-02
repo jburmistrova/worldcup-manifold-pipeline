@@ -38,7 +38,7 @@ jobs:
           mkdir -p data/raw
           cp tests/fixtures/raw/*.jsonl data/raw/
 
-      - name: Spark: flatten raw JSON to Parquet
+      - name: "Spark: flatten raw JSON to Parquet"
         run: python spark/flatten_to_parquet.py
 
       - name: dbt deps (installs dbt_utils, per dbt/packages.yml)
