@@ -9,6 +9,6 @@ select
     resolutionProbability as prob_resolution,
     volume,
     totalLiquidity as liquidity_total,
-    epoch_ms(createdTime) as created_at,
-    epoch_ms(resolutionTime) as resolved_at
+    {{ epoch_ms_to_timestamp('createdTime') }} as created_at,
+    {{ epoch_ms_to_timestamp('resolutionTime') }} as resolved_at
 from {{ source('manifold_raw', 'market_answers') }}

@@ -1,7 +1,22 @@
 worldcup_pipeline:
+  # dev (DuckDB) stays the default: no service to run, no credentials, what
+  # every local run and CI's default build use. postgres is opt-in, selected
+  # with `dbt build --target postgres`, for the StatefulSet demonstration
+  # (see ADR-0004) or CI's separate postgres job. Same models, same tests,
+  # a different warehouse underneath; nothing about the dbt project itself
+  # needs to know which one is active.
   target: dev
   outputs:
     dev:
       type: duckdb
       path: manifold.duckdb
+      threads: 4
+    postgres:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | as_number }}"
+      user: "{{ env_var('POSTGRES_USER', 'worldcup') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'worldcup') }}"
+      schema: main
       threads: 4

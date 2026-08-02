@@ -55,15 +55,15 @@ models:
         tests:
           - not_null
       - name: prob_before
-        data_type: double
+        data_type: double precision
         tests:
           - not_null
       - name: prob_after
-        data_type: double
+        data_type: double precision
         tests:
           - not_null
       - name: prob_vwap_running
-        data_type: double
+        data_type: double precision
         tests:
           - not_null
       - name: jump_rank

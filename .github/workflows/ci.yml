@@ -48,3 +48,45 @@ jobs:
       - name: dbt build (staging -> intermediate -> marts, with tests)
         working-directory: dbt
         run: dbt build --profiles-dir .
+
+      # Parquet output from the Spark step above is reused as-is, not
+      # regenerated. DuckDB reads that Parquet directly (see
+      # dbt/models/staging/_sources.yml); Postgres has no equivalent, so it
+      # needs actual tables loaded first, which is all this step does.
+      - name: Load Parquet into Postgres (no DuckDB-style direct read)
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: worldcup
+          POSTGRES_PASSWORD: worldcup_ci_only
+          POSTGRES_DB: worldcup
+        run: python spark/load_parquet_to_postgres.py
+
+      - name: dbt build against Postgres (StatefulSet target, see ADR-0004)
+        working-directory: dbt
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: worldcup
+          POSTGRES_PASSWORD: worldcup_ci_only
+          POSTGRES_DB: worldcup
+        run: dbt build --profiles-dir . --target postgres
+    services:
+      # A throwaway service container, not the real k8s/postgres.yaml
+      # StatefulSet: CI needs to verify the postgres dbt target actually
+      # works, not spin up a whole Kubernetes cluster to prove it. The
+      # credential above is only ever reachable from inside this one CI
+      # run's network namespace, not a real secret worth protecting.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: worldcup
+          POSTGRES_PASSWORD: worldcup_ci_only
+          POSTGRES_DB: worldcup
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10

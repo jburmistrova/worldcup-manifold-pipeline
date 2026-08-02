@@ -48,7 +48,7 @@ models:
       - name: label
         data_type: varchar
       - name: predicted_prob
-        data_type: double
+        data_type: double precision
         tests:
           - not_null
       - name: is_yes
@@ -56,10 +56,10 @@ models:
         tests:
           - not_null
       - name: volume
-        data_type: double
+        data_type: double precision
       - name: liquidity_total
-        data_type: double
+        data_type: double precision
       - name: prob_bucket
-        data_type: double
+        data_type: double precision
         tests:
           - not_null

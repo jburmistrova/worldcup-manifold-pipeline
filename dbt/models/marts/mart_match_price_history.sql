@@ -9,6 +9,11 @@
 -- matches (via int_answer_kickoff_times, the same validated set
 -- mart_pre_kickoff_calibration uses) and attaching team names and kickoff
 -- time so the price path is readable without a separate join.
+--
+-- Disabled on postgres: depends on int_answer_kickoff_times, which
+-- depends on int_market_kickoff_times, which is DuckDB-only (see that
+-- model).
+{{ config(enabled = target.type != 'postgres') }}
 
 select
     p.market_id,

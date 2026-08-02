@@ -11,6 +11,11 @@
 --
 -- Extracted out of int_pre_kickoff_probability once a second consumer
 -- (mart_match_price_history) needed the exact same fan-out. See ADR-0009.
+--
+-- Disabled on postgres: depends on int_market_kickoff_times, which is
+-- DuckDB-only (see that model). Nothing here has its own dialect-specific
+-- SQL, this follows the upstream scope line, not a separate one.
+{{ config(enabled = target.type != 'postgres') }}
 
 with market_level_kickoffs as (
 

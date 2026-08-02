@@ -5,6 +5,11 @@
 -- logic on the 102 Mega-Market answers, which have no independent ground
 -- truth to check against. If this ever fails, the right response is to
 -- narrow the match patterns further, not relax this test.
+--
+-- Disabled on postgres: int_market_kickoff_times itself is DuckDB-only
+-- (see that model), so there's nothing here to validate on that target.
+{{ config(enabled = target.type != 'postgres') }}
+
 select *
 from {{ ref('int_market_kickoff_times') }}
 where answer_id is null

@@ -52,7 +52,7 @@ select
     probBefore as prob_before,
     probAfter as prob_after,
     limitProb as prob_limit,
-    epoch_ms(createdTime) as created_at,
+    {{ epoch_ms_to_timestamp('createdTime') }} as created_at,
     isFilled as is_filled,
     isCancelled as is_cancelled,
     isRedemption as is_redemption
@@ -62,5 +62,5 @@ where isFilled = true
   and amount != 0
 
 {% if is_incremental() %}
-  and epoch_ms(createdTime) > (select coalesce(max(created_at), timestamp '1900-01-01') from {{ this }})
+  and {{ epoch_ms_to_timestamp('createdTime') }} > (select coalesce(max(created_at), timestamp '1900-01-01') from {{ this }})
 {% endif %}

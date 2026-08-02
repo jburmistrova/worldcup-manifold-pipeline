@@ -44,7 +44,9 @@ Tried `pyenv install 3.14.6` first (building Python from source). Failed twice w
 
 ## Python packages actually in use
 
-`requests`, `pyspark==4.2.0`, `dbt-core==1.12.0`, `dbt-duckdb==1.10.1`, all pinned in [requirements.txt](requirements.txt). Installed the latest of each, confirmed compatible with the Python version above before installing (dbt Core 1.12 officially supports Python 3.10-3.14 [2]; PySpark 4.2.0 requires `>=3.10` with no upper cap [1]).
+`requests`, `pyspark==4.2.0`, `dbt-core==1.12.0`, `dbt-duckdb==1.10.1`, `matplotlib==3.11.1`, all pinned in [requirements.txt](requirements.txt). Installed the latest of each, confirmed compatible with the Python version above before installing (dbt Core 1.12 officially supports Python 3.10-3.14 [2]; PySpark 4.2.0 requires `>=3.10` with no upper cap [1]).
+
+`dbt-postgres==1.11.0`, `pandas==3.0.5`, `pyarrow==25.0.0`, `psycopg2-binary==2.9.12`, `sqlalchemy==2.0.51`: only used by the optional Postgres dbt target (`spark/load_parquet_to_postgres.py`, see [ADR-0004](decisions/0004-local-warehouse-duckdb-then-postgres.md)). The default DuckDB path never imports any of these. `dbt-postgres`'s latest release (1.11.0) trails `dbt-core` by one minor version, same situation as `dbt-duckdb` above; confirmed compatible before pinning, not assumed.
 
 ## Kubernetes tooling
 

@@ -22,6 +22,10 @@
 -- the market itself to the winning answer_id and never sets a.resolution at
 -- all (see lessons_learned.md). Checking a.resolution directly would have
 -- silently dropped all of them.
+--
+-- Disabled on postgres: depends (via int_pre_kickoff_probability) on
+-- int_market_kickoff_times, which is DuckDB-only (see that model).
+{{ config(enabled = target.type != 'postgres') }}
 
 select
     a.market_id,

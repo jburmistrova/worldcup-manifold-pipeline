@@ -5,7 +5,15 @@ sources:
     description: >
       Parquet output from spark/flatten_to_parquet.py, typed, flattened,
       but zero business logic applied (see ADR-0005). DuckDB reads these
-      files directly; there's no separate "load into the warehouse" step.
+      files directly via external_location below, no separate "load into
+      the warehouse" step. Postgres has no equivalent way to query a
+      Parquet file in place, so the postgres target (see ADR-0004) needs
+      an actual load step first: spark/load_parquet_to_postgres.py creates
+      real tables in this same schema before dbt runs. DuckDB's
+      external_location config takes priority over schema/database for
+      this source when duckdb is the active target, so this one file
+      serves both adapters without a target-conditional.
+    schema: raw
     meta:
       external_location: "../data/processed/{name}/*.parquet"
     tables:

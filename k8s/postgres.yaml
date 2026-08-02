@@ -1,0 +1,86 @@
+# Postgres as a StatefulSet, not a Deployment (see ADR-0004): a database
+# needs a stable identity and its own storage across restarts, the opposite
+# of the stateless worldcup-pipeline Job in job.yaml. This is the second,
+# harder category of Kubernetes workload this project practices, on top of
+# the stateless one.
+#
+# Credentials come from a Secret this file deliberately does NOT define
+# (see docs/data_engineering_best_practices.md's "Secrets never hardcoded or
+# committed" row). Create it once before applying this file:
+#
+#   kubectl create secret generic postgres-credentials \
+#     --from-literal=POSTGRES_USER=worldcup \
+#     --from-literal=POSTGRES_PASSWORD=<your own value> \
+#     --from-literal=POSTGRES_DB=worldcup
+#
+# A headless Service (clusterIP: None) is what gives a StatefulSet's pods
+# stable DNS names (postgres-0.postgres.default.svc.cluster.local), the
+# actual mechanic being practiced here, not just a way to reach the pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-credentials
+          volumeMounts:
+            # PGDATA one level below the mount point: Postgres refuses to
+            # initialize directly into a directory that already has a
+            # lost+found entry, which hostPath-backed volumes on a local
+            # cluster commonly do.
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          resources:
+            requests:
+              cpu: "0.5"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+  # volumeClaimTemplates, not a single shared PersistentVolumeClaim: this is
+  # the actual StatefulSet mechanic being practiced. Each replica gets its
+  # own PVC, created and bound automatically, and keeps the exact same one
+  # across restarts and rescheduling, by name, not by whichever volume
+  # happens to be free.
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            # on minikube's default storage class, this is a hostPath
+            # volume, not real durable network-attached storage (see
+            # ADR-0004's caveat: this teaches the PVC/StatefulSet API and
+            # mechanics, not the "survives even if the node dies" value a
+            # real multi-node cluster would demonstrate).
+            storage: 1Gi

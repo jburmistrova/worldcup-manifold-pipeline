@@ -16,6 +16,10 @@
 -- for why it's needed at all) used to live inline here. Extracted once
 -- mart_match_price_history needed the identical fan-out, so it isn't
 -- maintained in two places. See ADR-0009.
+--
+-- Disabled on postgres: depends on int_answer_kickoff_times, which depends
+-- on int_market_kickoff_times, which is DuckDB-only (see that model).
+{{ config(enabled = target.type != 'postgres') }}
 
 with pre_kickoff_ticks as (
 

@@ -78,6 +78,21 @@ kubectl get jobs                                # STATUS: Complete when done, ~2
 
 Both run the identical pipeline (same `run_pipeline.sh` entrypoint); the Kubernetes path just runs it inside a pod instead of your shell. See [ADR-0003](docs/decisions/0003-kubernetes-job-not-cronjob-or-deployment.md) for why this is a Job, not a Deployment or CronJob.
 
+Postgres is also available as a selectable dbt target, DuckDB stays the default everywhere else, for the Kubernetes StatefulSet/PVC pattern specifically (see [ADR-0004](docs/decisions/0004-local-warehouse-duckdb-then-postgres.md)):
+
+```bash
+kubectl create secret generic postgres-credentials \
+  --from-literal=POSTGRES_USER=worldcup \
+  --from-literal=POSTGRES_PASSWORD=<your own value> \
+  --from-literal=POSTGRES_DB=worldcup
+kubectl apply -f k8s/postgres.yaml
+kubectl port-forward svc/postgres 5432:5432 &
+
+export POSTGRES_HOST=localhost POSTGRES_USER=worldcup POSTGRES_PASSWORD=<same value> POSTGRES_DB=worldcup
+python spark/load_parquet_to_postgres.py        # Postgres has no DuckDB-style direct Parquet read, needs real tables loaded first
+cd dbt && dbt build --profiles-dir . --target postgres
+```
+
 To browse the data directly: `duckdb -ui manifold.duckdb` (from inside `dbt/`) opens DuckDB's built-in local web UI, a schema browser and SQL editor against the same database file dbt just built into. See [requirements.md](requirements.md) for the CLI install.
 
 To browse the project's structure instead of the data (model lineage graph, column-level descriptions, which models depend on which): `dbt docs generate --profiles-dir . && dbt docs serve` (from inside `dbt/`) builds and serves dbt's own documentation site from the `description:` fields already written in each model's `schema.yml`.

@@ -20,6 +20,15 @@
 --    questions, in the strict shape "{Team A} beats {Team B} <soccer ball>
 --    {date} ({time}) {Broadcaster}". Confirmed this pattern matches exactly
 --    102 answers total, zero elsewhere, before trusting it as a filter.
+--
+-- DuckDB-only (regexp_extract/regexp_matches, DuckDB's RE2-based
+-- functions): a deliberate scope line, not an oversight. Postgres has its
+-- own regex functions with different signatures (regexp_match returns an
+-- array, not a matched group directly), and making this genuinely portable
+-- across regex dialects isn't the point of the postgres target, which
+-- exists for Kubernetes StatefulSet practice (ADR-0004), not full
+-- cross-database SQL portability. See that ADR's postgres-target update.
+{{ config(enabled = target.type != 'postgres') }}
 
 with clean_format_markets as (
 
