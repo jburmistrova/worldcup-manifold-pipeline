@@ -31,16 +31,42 @@ with binary_predictions as (
 
 multiple_choice_predictions as (
 
+    -- MULTIPLE_CHOICE markets resolve in two different shapes, and only one
+    -- of them sets a.resolution directly. "Independent" markets (Manifold
+    -- marks the market itself resolved 'MKT') let each answer resolve on its
+    -- own, YES or NO, same as before. "Single-select" markets resolve the
+    -- market to one winning answer_id and never touch a.resolution at all,
+    -- so every one of that market's answers was silently dropped here until
+    -- this was found: the winner has to be derived by comparing this
+    -- answer_id to the market's own resolution value instead. CANCEL (voided)
+    -- and CHOOSE_MULTIPLE (multiple winners, not captured in what we pulled)
+    -- are correctly excluded, not guessed at. See lessons_learned.md.
     select
-        market_id,
-        answer_id,
-        answer_text as label,
-        prob_resolution as predicted_prob,
-        resolution = 'YES' as is_yes,
-        volume,
-        liquidity_total
-    from {{ ref('stg_manifold_market_answers') }}
-    where resolution in ('YES', 'NO')
+        a.market_id,
+        a.answer_id,
+        a.answer_text as label,
+        a.prob_resolution as predicted_prob,
+        case
+            when m.resolution = 'MKT' then a.resolution = 'YES'
+            else a.answer_id = m.resolution
+        end as is_yes,
+        a.volume,
+        a.liquidity_total
+    from {{ ref('stg_manifold_market_answers') }} a
+    inner join {{ ref('stg_manifold_markets') }} m
+        on a.market_id = m.market_id
+    where
+        a.prob_resolution is not null
+        and (
+            (m.resolution = 'MKT' and a.resolution in ('YES', 'NO'))
+            or (
+                m.resolution not in ('CANCEL', 'MKT', 'CHOOSE_MULTIPLE')
+                and exists (
+                    select 1 from {{ ref('stg_manifold_market_answers') }} a2
+                    where a2.market_id = m.market_id and a2.answer_id = m.resolution
+                )
+            )
+        )
 
 ),
 

@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: int_pre_kickoff_probability
+    description: >
+      One row per market/answer with a validated kickoff time, carrying the
+      market's implied probability from its last real trade strictly before
+      that kickoff. Feeds mart_pre_kickoff_calibration.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - market_id
+              - answer_id
+    columns:
+      - name: pre_kickoff_prob
+        tests:
+          - not_null

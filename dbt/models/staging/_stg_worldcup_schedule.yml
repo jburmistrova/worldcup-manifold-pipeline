@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: stg_worldcup_schedule
+    description: >
+      One row per real World Cup 2026 match (104 total), seeded from
+      openfootball/worldcup.json (CC0-1.0, see ADR-0008). Exact kickoff time,
+      teams, final score. Used to backfill kickoff times Manifold itself
+      doesn't provide, matched only where the source market/answer text fits
+      a strict, unambiguous pattern, never by fuzzy text similarity.
+    columns:
+      - name: team1
+        tests:
+          - not_null
+      - name: team2
+        tests:
+          - not_null
+      - name: kickoff_at
+        tests:
+          - not_null

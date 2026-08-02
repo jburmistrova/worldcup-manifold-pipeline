@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: int_market_kickoff_times
+    description: >
+      One row per market/answer matched to a real kickoff time, either
+      Manifold's own sports_start_at or openfootball's schedule (see
+      ADR-0008). Matched only where the source text fits a strict,
+      unambiguous pattern; anything ambiguous is simply absent from this
+      model rather than guessed.
+    tests:
+      # a market or answer should resolve to exactly one real match, never
+      # more than one. More than one would mean the unordered team-pair
+      # join found multiple candidates, which should be impossible given
+      # the tournament has no repeated pairings (verified empirically), so
+      # this test doubles as a check that assumption still holds.
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - market_id
+              - answer_id
+    columns:
+      - name: openfootball_kickoff_at
+        tests:
+          - not_null

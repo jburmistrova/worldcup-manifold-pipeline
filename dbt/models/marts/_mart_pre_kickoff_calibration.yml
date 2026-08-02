@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: mart_pre_kickoff_calibration
+    description: >
+      Genuine pre-kickoff calibration comparison for the 380 predictions with
+      a validated kickoff time and a real trade before it (see ADR-0008), an
+      addition alongside mart_market_efficiency's larger resolution-time
+      result, not a replacement for it.
+    config:
+      contract:
+        enforced: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - market_id
+              - answer_id
+    columns:
+      - name: market_id
+        data_type: varchar
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_manifold_markets')
+                field: market_id
+      - name: answer_id
+        data_type: varchar
+      - name: label
+        data_type: varchar
+      - name: predicted_prob
+        data_type: double
+        tests:
+          - not_null
+      - name: is_yes
+        data_type: boolean
+        tests:
+          - not_null
+      - name: volume
+        data_type: double
+      - name: liquidity_total
+        data_type: double
+      - name: prob_bucket
+        data_type: double
+        tests:
+          - not_null

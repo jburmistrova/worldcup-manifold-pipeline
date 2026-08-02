@@ -43,6 +43,11 @@ def flatten_markets(spark):
         "isResolved",
         *_as_double("probability", "volume", "totalLiquidity"),
         "createdTime", "closeTime", "resolutionTime",
+        # present on 108 of 621 markets (sports-integrated markets only,
+        # see ADR-0008), a real precise kickoff time straight from Manifold.
+        # Was flagged as "not carried into Parquet yet" in data_dictionary.md;
+        # now that it drives real matching logic, it needs to be here.
+        "sportsStartTimestamp",
     )
 
 

@@ -33,10 +33,9 @@ def main():
     # perfect-calibration reference line
     ax.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1, label="Perfect calibration")
 
-    # marker size scales with sqrt(n) so the two well-sampled extreme
-    # buckets (1,647 and 900 predictions) read as visibly more confident
-    # than the thin middle buckets (17-52 predictions each), without the
-    # size difference becoming so extreme it's unreadable
+    # marker size scales with sqrt(n) so the well-sampled extreme buckets
+    # read as visibly more confident than the thin middle buckets, without
+    # the size difference becoming so extreme it's unreadable
     sizes = [30 * (n ** 0.5) for n in ns]
     ax.scatter(predicted, actual, s=sizes, alpha=0.7, color="#2b6cb0", edgecolor="white", zorder=3)
 

@@ -4,6 +4,8 @@ A Spark + dbt pipeline over Manifold Markets' public API, reconstructing implied
 
 Built to gain real, hands-on experience with Spark, dbt, and Kubernetes. Three tools I hadn't used in production before this. See [Architecture Decision Records](docs/decisions/) for the reasoning behind every non-obvious choice, including the ones that add complexity this specific workload didn't strictly need.
 
+**A note on how this was built:** my background is in data engineering. I used Claude Code throughout this project, for pairing on the code and for help with the analysis and understanding it. That means there could be errors I didn't catch. Verify anything here you're relying on, don't take it on faith.
+
 **Status (2026-07-31):** in progress. Ingestion (621 markets, 4,545 answers, 1.18M bet records), Spark, dbt's full staging/intermediate/marts layers, and a real results writeup are all built and verified. See [docs/results.md](docs/results.md) for the actual finding. Kubernetes is designed (see docs below) but not yet implemented, the one piece left for core scope. See `PROJECT_SPEC.md`'s "Scope: core vs. stretch" section for the full picture.
 
 ## Problem statement
