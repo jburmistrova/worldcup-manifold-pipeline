@@ -23,8 +23,8 @@ business field explicitly instead of trusting inference for them. The
 type is now guaranteed regardless of what a given sample happens to contain.
 """
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-from pyspark.sql.types import DoubleType
+from pyspark.sql.functions import col, lit
+from pyspark.sql.types import DoubleType, StringType
 
 RAW_DIR = "data/raw"
 OUT_DIR = "data/processed"
@@ -34,6 +34,23 @@ def _as_double(*names):
     # forces a real-valued business field to DOUBLE regardless of what
     # Spark's schema inference guessed from the sample it happened to see
     return [col(n).cast(DoubleType()) for n in names]
+
+
+def _optional_string(df, name):
+    # Manifold only includes this field on some markets at all (see
+    # ADR-0008): sportsStartTimestamp is present on ~1 in 6 real markets,
+    # not present-but-null on the rest, absent from the payload entirely.
+    # A small sample (the CI fixture's 5 markets, by chance none of the
+    # qualifying shape) can end up with zero rows carrying the key, and
+    # Spark's inferred schema then has no such column at all, not a
+    # nullable one. Selecting it directly crashes with an unresolved-column
+    # error instead of returning nulls. Same root cause as _as_double
+    # above (a small sample's inferred schema can't be trusted to match the
+    # full dataset's), one level earlier: here it's the column's existence,
+    # not just its type, that a small sample can get wrong.
+    if name in df.columns:
+        return col(name)
+    return lit(None).cast(StringType())
 
 
 def flatten_markets(spark):
@@ -47,7 +64,7 @@ def flatten_markets(spark):
         # see ADR-0008), a real precise kickoff time straight from Manifold.
         # Was flagged as "not carried into Parquet yet" in data_dictionary.md;
         # now that it drives real matching logic, it needs to be here.
-        "sportsStartTimestamp",
+        _optional_string(df, "sportsStartTimestamp").alias("sportsStartTimestamp"),
     )
 
 
