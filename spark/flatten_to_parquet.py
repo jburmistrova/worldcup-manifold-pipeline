@@ -7,20 +7,41 @@ Unlike the earlier CSV-based version of this script, JSON carries real
 native types (booleans are actual booleans, numbers are actual numbers), so
 there's no defensive string-then-cast dance here — that entire class of
 problem (see ADR-0006) doesn't exist for a properly-typed source format.
-Schema inference is safe here specifically because JSON is self-describing,
-unlike CSV where every field is ambiguous text.
+
+Correcting an earlier claim in this docstring: "schema inference is safe
+because JSON is self-describing" -- per-value, yes, but Spark's schema
+*inference* still guesses a column's type from a sample of the actual data,
+not from any fixed contract, and that guess can differ across samples. Found
+for real, not hypothetically: on the small CI fixture (tests/fixtures/raw/),
+every totalLiquidity value happens to be a whole number, so Spark inferred
+BIGINT; on the full dataset, fractional values (e.g. 142.857...) make it
+infer DOUBLE -- same field, same source, different inferred type depending
+on which rows happened to be in the sample. That silently broke
+mart_market_efficiency's enforced contract (data_type: double) the first
+time CI ran against the fixture. Fixed by casting every real-valued
+business field explicitly instead of trusting inference for them -- the
+type is now guaranteed regardless of what a given sample happens to contain.
 """
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+from pyspark.sql.types import DoubleType
 
 RAW_DIR = "data/raw"
 OUT_DIR = "data/processed"
+
+
+def _as_double(*names):
+    # forces a real-valued business field to DOUBLE regardless of what
+    # Spark's schema inference guessed from the sample it happened to see
+    return [col(n).cast(DoubleType()) for n in names]
 
 
 def flatten_markets(spark):
     df = spark.read.json(f"{RAW_DIR}/worldcup_2026_markets.jsonl")
     return df.select(
         "id", "question", "slug", "url", "outcomeType", "resolution",
-        "isResolved", "probability", "volume", "totalLiquidity",
+        "isResolved",
+        *_as_double("probability", "volume", "totalLiquidity"),
         "createdTime", "closeTime", "resolutionTime",
     )
 
@@ -29,8 +50,8 @@ def flatten_market_answers(spark):
     df = spark.read.json(f"{RAW_DIR}/worldcup_2026_market_answers.jsonl")
     return df.select(
         "contractId", "id", "index", "text", "isOther",
-        "probability", "resolution", "resolutionProbability", "resolutionTime",
-        "volume", "totalLiquidity", "createdTime",
+        *_as_double("probability", "resolutionProbability", "volume", "totalLiquidity"),
+        "resolution", "resolutionTime", "createdTime",
     )
 
 
@@ -42,9 +63,9 @@ def flatten_bets(spark):
     # added after checking the raw payload directly rather than assuming.
     df = spark.read.json(f"{RAW_DIR}/worldcup_2026_bets.jsonl")
     return df.select(
-        "id", "contractId", "answerId", "userId", "outcome", "amount", "shares",
-        "probBefore", "probAfter", "createdTime",
-        "isFilled", "isCancelled", "isRedemption", "limitProb", "orderAmount",
+        "id", "contractId", "answerId", "userId", "outcome",
+        *_as_double("amount", "shares", "probBefore", "probAfter", "limitProb", "orderAmount"),
+        "createdTime", "isFilled", "isCancelled", "isRedemption",
     )
 
 
