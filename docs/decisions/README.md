@@ -13,3 +13,4 @@ Short, dated records of the non-obvious calls made on this project and why. Not 
 | [0007](0007-search-limit-truncation.md) | Small `limit` values silently truncate `/v0/search-markets` results | Accepted |
 | [0008](0008-kickoff-time-enrichment-openfootball.md) | Kickoff-time enrichment from openfootball, seeded and matched by strict pattern | Accepted |
 | [0009](0009-stretch-marts-match-price-history-and-outright-odds.md) | Stretch marts: match price history, outright odds scoped to one market out of ~15 near-duplicates | Accepted |
+| [0010](0010-polymarket-eligible-as-a-future-data-source.md) | Polymarket verified as an eligible future data source, not yet integrated | Accepted |
