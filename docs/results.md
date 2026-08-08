@@ -78,6 +78,57 @@ The gap is the finding. Resolution-time probability isn't a measure of calibrati
 
 Reproducible via `dbt build` (rebuilds `mart_pre_kickoff_calibration`) plus the same query pattern used above; not yet wired into `analysis/compute_calibration_metrics.py`.
 
+## Addendum: two-way real money vs. one-way spendable currency, a deliberate statistics exception
+
+Everything above is deliberately scoped to data engineering: reconstruction, validation, honest caveats about sample size, not formal hypothesis testing. This section is a stated exception, not a quiet reversal of that scope (see [ADR-0013](decisions/0013-platform-calibration-comparison-as-a-deliberate-ds-exception.md)): asked directly whether people are more "fast and loose," worse-calibrated, on Manifold than Polymarket, and whether any difference is statistically real.
+
+**Not simply "real money vs. fake money."** Manifold's Mana genuinely has a cash-in path (buying it directly with real dollars is one of the documented ways to get it), so calling it "play money" understates its real-world connection. Checked Manifold's actual policy rather than assumed: Mana is one-way convertible, cash buys it, but it cannot be converted back to USD, crypto, or gift cards under any circumstance (the sole exit is a fixed-rate charitable donation, Ṁ100 = $1; a prior real-cash-out program, "Sweepcash," was discontinued). The dimension that actually matters here isn't whether cash goes in, it's whether profit can come out: a Polymarket trader who's right can withdraw real gains, a Manifold trader who's right can only get more Mana. That inability to realize profit, not the absence of real money entirely, is the actual mechanism this comparison tests.
+
+Manifold (one-way spendable currency) and Polymarket (real, two-way-convertible money) both had an outright World Cup winner market. Compared each team's last real implied probability strictly before the tournament itself started (2026-06-11 19:00 UTC, the actual first match kickoff) against the real outcome (Spain won, on both platforms):
+
+| Platform | n | Brier score |
+|---|---|---|
+| Manifold (Mana, one-way convertible) | 47 | 0.0162 |
+| Polymarket (real, two-way convertible) | 50 | 0.0152 |
+
+Manifold's Brier score is nominally higher (worse), the direction the "fast and loose" hypothesis predicts. A bootstrap significance test (10,000 resamples, each platform's own sample resampled independently, see `analysis/compare_platform_calibration.py`) gives a 95% CI for the difference of **[-0.0402, 0.0422]**, comfortably including zero, and an approximate two-sided p-value of **0.83**. **No statistically significant difference.**
+
+**The honest limitation, not glossed over:** n=47 and n=50, with exactly one true positive per platform (one team wins the whole tournament). That's a small, low-power sample by construction: resampling a set this size and this imbalanced can draw zero positives in a single bootstrap iteration, part of why the interval is this wide. A result like this is close to the most likely outcome at this sample size whether or not a real underlying difference exists, it can rule out a *large* difference between the platforms here, not a small one. This doesn't confirm real money produces better-calibrated forecasting in general; it's an honest statement that this specific, narrowly-scoped comparison couldn't detect a difference, not evidence that none exists.
+
+Reproducible via `dbt build` (rebuilds `mart_platform_calibration_comparison`) then `python analysis/compare_platform_calibration.py`.
+
+### How this compares to the published literature
+
+Checked rather than assumed: two real studies have asked essentially this question before, and they don't agree with each other, which matters for how much weight to put on our own result.
+
+**Servan-Schreiber, Wolfers, Pennock & Galebach (2004)** compared Tradesports (real money) against Newsfutures (play money) predicting NFL outcomes across the full 2003 season [1]. Quoted directly from a later paper that cites it: "a comparison of Newsfutures and Tradesports prices for securities predicting NFL victories for the 2003 season found that while the two markets often yielded different predictions, they were approximately equally well calibrated" [2]. Same direction as our result, no significant difference, but with vastly more statistical power: a full NFL season means hundreds of games with a roughly even win/loss split, not one tournament's outright winner with a single true positive.
+
+A more recent iPredict-based study found something more nuanced: pooled across different event types, play money showed no significant excess accuracy, but **in direct comparisons of the same events across platforms**, real-money contracts predicted significantly more accurately [3]. That's methodologically the closer match to what we built here (same real-world event, both platforms, direct comparison), and it reached a significant result where ours didn't.
+
+Our own result doesn't cleanly confirm or contradict either paper. It's consistent with the older study's direction but nowhere near its statistical power, and it directly disagrees with the newer, more methodologically similar one. Neither of those studies used a bootstrap, both appear to rely on regression-based tests with proper controls (order volume, days-to-expiry, in the iPredict case), a reasonable choice at their sample sizes that a small, single-tournament sample like ours can't really support. The honest reading: our sample can't adjudicate between the two published findings, it's underpowered relative to either.
+
+## How much did the two platforms actually agree, not just whether the gap was significant?
+
+A separate, purely descriptive question, deliberately without a significance test this time (see `analysis/compare_platform_predictions.py`): for the same 50 outright-winner teams, how close were Manifold's and Polymarket's pre-tournament implied probabilities to each other, team by team?
+
+**46 of 50 teams matched across both platforms.** The 4 that didn't are a real structural difference, not a data gap: Manifold's outright market has a single "Other" catch-all answer absorbing longshots that Polymarket lists individually (Bosnia-Herzegovina, Peru, Qatar, Saudi Arabia).
+
+**Overall agreement is close.** Mean absolute difference of 0.98 percentage points, median 0.72pp. 70% of teams were within 1pp, 91% within 2pp, and every team was within 5pp.
+
+**Where they differed most, a real, structured pattern, not noise:** the three biggest gaps were all top favorites, and Manifold priced all three higher than Polymarket.
+
+| Team | Manifold | Polymarket | Abs. diff |
+|---|---|---|---|
+| France | 21.0% | 16.1% | 4.95pp |
+| Argentina | 13.0% | 8.9% | 4.15pp |
+| Ecuador | 4.2% | 0.9% | 3.38pp |
+
+Below the top few contenders, the platforms track each other almost exactly, several longshots (Czechia, Australia, Paraguay) matched within a few basis points of each other.
+
+**Worth naming plainly:** this is the more informative result of the two comparisons in this section. The significance test above found the platforms statistically indistinguishable on aggregate calibration; this descriptive comparison shows their underlying predictions weren't identical, they diverged in a structured way concentrated specifically at the top of the market. Aggregate accuracy can look the same while the actual beliefs underneath don't, a real distinction, not a contradiction between the two results.
+
+Reproducible via `python analysis/compare_platform_predictions.py` (after the same `dbt build` above).
+
 ## What would strengthen this
 
 Not done here, and worth being explicit about rather than implying this is the final word:
@@ -91,4 +142,12 @@ Not done here, and worth being explicit about rather than implying this is the f
 cd dbt && dbt deps && dbt build --profiles-dir .
 cd .. && python analysis/plot_calibration.py
 python analysis/compute_calibration_metrics.py
+python analysis/compare_platform_calibration.py
+python analysis/compare_platform_predictions.py
 ```
+
+## References
+
+1. Servan-Schreiber, E., Wolfers, J., Pennock, D.M., Galebach, B. (2004). *Prediction Markets: Does Money Matter?* Electronic Markets, 14(3).
+2. Wolfers, J., Zitzewitz, E. (2006). *Five Open Questions about Prediction Markets.* Federal Reserve Bank of San Francisco Working Paper 2006-06. (Quotes and cites [1]'s NFL comparison directly.)
+3. iPredict-based study on real-money vs. play-money forecasting accuracy, direct same-event comparison. *Real-Money Vs. Play-Money Forecasting Accuracy in Online Prediction Markets: Empirical Insights from iPredict.* Journal of Prediction Markets. (Findings accessed via publisher abstract/summary, not the full paper; cited here for its stated result, not verified line-by-line the way [1] and [2] were.)

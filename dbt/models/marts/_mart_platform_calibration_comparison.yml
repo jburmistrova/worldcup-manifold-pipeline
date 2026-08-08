@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: mart_platform_calibration_comparison
+    description: >
+      Real-money (Polymarket) vs. play-money (Manifold) calibration
+      comparison, one row per team's outright-winner prediction on each
+      platform, at the last real tick before the tournament itself started
+      (see this model's own header comment and ADR-0013).
+    config:
+      contract:
+        enforced: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - source_platform
+              - team
+    columns:
+      - name: source_platform
+        data_type: varchar
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["manifold", "polymarket"]
+      - name: team
+        data_type: varchar
+        tests:
+          - not_null
+      - name: predicted_prob
+        data_type: double precision
+        tests:
+          - not_null
+      - name: is_yes
+        data_type: boolean
+        tests:
+          - not_null

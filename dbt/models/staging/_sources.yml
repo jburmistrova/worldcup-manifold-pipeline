@@ -20,3 +20,18 @@ sources:
       - name: markets
       - name: market_answers
       - name: bets
+
+  - name: polymarket_raw
+    description: >
+      Parquet output from spark/flatten_polymarket.py, see ADR-0011. Same
+      external_location/postgres-load pattern as manifold_raw above, a
+      separate source rather than reusing manifold_raw's name since these
+      are genuinely different raw datasets, not different rows of the same
+      one.
+    schema: raw
+    meta:
+      external_location: "../data/processed/{name}/*.parquet"
+    tables:
+      - name: polymarket_markets
+      - name: polymarket_trades
+      - name: polymarket_prices

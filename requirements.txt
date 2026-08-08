@@ -4,6 +4,10 @@ dbt-core==1.12.0
 dbt-duckdb==1.10.1
 dbt-postgres==1.11.0
 matplotlib==3.11.1
+# Only used by analysis/compare_platform_calibration.py's bootstrap
+# resampling (ADR-0013). Was already installed transitively via
+# pandas/pyspark, pinned explicitly now that a script imports it directly.
+numpy==2.5.1
 # Only used by spark/load_parquet_to_postgres.py, when the postgres dbt
 # target (ADR-0004) is in use. The default DuckDB path never imports these.
 pandas==3.0.5

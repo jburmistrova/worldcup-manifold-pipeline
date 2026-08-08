@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: int_all_market_ticks
+    description: >
+      Every platform's price-reconstruction-worthy events, unioned into one
+      canonical shape (see ADR-0011 and this model's own header comment).
+      Feeds int_market_implied_probability, which doesn't need to know
+      which platform a row came from.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - bet_id
+    columns:
+      - name: market_id
+        tests:
+          - not_null
+      - name: bet_id
+        tests:
+          - not_null
+          - unique
+      - name: created_at
+        tests:
+          - not_null
+      - name: prob_after
+        tests:
+          - not_null
+      - name: source_platform
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["manifold", "polymarket"]

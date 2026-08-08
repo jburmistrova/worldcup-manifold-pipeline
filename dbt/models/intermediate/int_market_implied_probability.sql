@@ -5,6 +5,14 @@
 -- independent probability track per answer; mixing them would produce a
 -- meaningless probability path. See stg_manifold_bets for why answer_id is
 -- null for BINARY markets and how that's handled correctly by this grouping.
+--
+-- Reads int_all_market_ticks, not stg_manifold_bets directly (see that
+-- model for the platform-union reasoning, ADR-0011). This model's own
+-- logic below is unchanged from when it only ever saw Manifold data:
+-- Polymarket's rows carry a NULL amount (a price sample, not a sized
+-- trade), and SQL's own NULL handling in SUM() already leaves
+-- prob_vwap_running correctly NULL for those rows without any special
+-- case here.
 
 with ordered_bets as (
 
@@ -21,7 +29,7 @@ with ordered_bets as (
             partition by market_id, answer_id
             order by created_at
         ) as tick_number
-    from {{ ref('stg_manifold_bets') }}
+    from {{ ref('int_all_market_ticks') }}
 
 )
 

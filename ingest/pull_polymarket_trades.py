@@ -12,11 +12,20 @@ import json
 import os
 import time
 
+import requests
+
 from retry_get import get_with_retry
 
 BASE_URL = "https://data-api.polymarket.com"
 MARKETS_PATH = "data/raw/polymarket_2026_events.jsonl"
 OUTPUT_PATH = "data/raw/polymarket_2026_trades.jsonl"
+# confirmed empirically (see ADR-0011): /trades errors past this offset,
+# "max historical trades offset of 10000 exceeded". A real, hard ceiling on
+# this specific endpoint, not a transient failure retry_get should retry -
+# this is why prices-history, not trades, is this project's primary source
+# for full-history reconstruction (pull_polymarket_prices.py). Trades still
+# has value for its own sake (size, side, individual fills), just bounded.
+MAX_OFFSET = 10000
 
 
 def condition_ids_from_events(path):
@@ -40,11 +49,20 @@ def fetch_trades_for_market(condition_id, limit=500):
     seen = set()
     offset = 0
 
-    while True:
-        page = get_with_retry(
-            f"{BASE_URL}/trades",
-            params={"market": condition_id, "limit": limit, "offset": offset},
-        )
+    while offset < MAX_OFFSET:
+        try:
+            page = get_with_retry(
+                f"{BASE_URL}/trades",
+                params={"market": condition_id, "limit": limit, "offset": offset},
+            )
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 400:
+                # the offset ceiling, reached exactly at the boundary
+                # instead of stopped short of it (e.g. a market with
+                # trades landing right at a 500-multiple). Treat as done,
+                # not a real error.
+                break
+            raise
         if not page:
             break
 
