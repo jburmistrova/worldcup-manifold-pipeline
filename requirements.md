@@ -48,6 +48,8 @@ Tried `pyenv install 3.14.6` first (building Python from source). Failed twice w
 
 `dbt-postgres==1.11.0`, `pandas==3.0.5`, `pyarrow==25.0.0`, `psycopg2-binary==2.9.12`, `sqlalchemy==2.0.51`: only used by the optional Postgres dbt target (`spark/load_parquet_to_postgres.py`, see [ADR-0004](decisions/0004-local-warehouse-duckdb-then-postgres.md)). The default DuckDB path never imports any of these. `dbt-postgres`'s latest release (1.11.0) trails `dbt-core` by one minor version, same situation as `dbt-duckdb` above; confirmed compatible before pinning, not assumed.
 
+`numpy==2.5.1`: only used by `analysis/compare_platform_calibration.py`, the optional Polymarket-vs-Manifold bootstrap significance test (see [ADR-0013](decisions/0013-platform-calibration-comparison-as-a-deliberate-ds-exception.md)). Nothing else in this project needs array math; DuckDB and dbt handle every other aggregation in SQL.
+
 ## Kubernetes tooling
 
 | Tool | Version | Why |

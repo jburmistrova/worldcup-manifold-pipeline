@@ -16,6 +16,10 @@
 -- market's actual full trading history; that gap is why
 -- stg_polymarket_prices exists as the primary reconstruction source, not
 -- this one.
+--
+-- Gated behind INCLUDE_POLYMARKET (default: off); see int_all_market_ticks.
+
+{{ config(enabled = env_var('INCLUDE_POLYMARKET', 'false') == 'true') }}
 
 select
     md5(

@@ -1,10 +1,17 @@
 # Runs the real pipeline (Spark -> dbt build+test) on every push, against a
 # small committed fixture (tests/fixtures/raw/) instead of the live Manifold
-# API. Deliberately NOT hitting the real API here: it's the external
-# dependency this project itself found to be slow/rate-limited under rapid
-# calls (see lessons_learned.md). CI that depends on a third-party API's
-# mood is exactly the kind of flaky CI worth avoiding, on top of there being
-# no reason to re-pull the same ~600 markets on every push anyway.
+# and Polymarket APIs. Deliberately NOT hitting either real API here: this
+# project found Manifold's own API to be slow/rate-limited under rapid calls
+# (see lessons_learned.md), and there's no reason to re-pull the same ~600
+# Manifold markets or ~6,300 Polymarket markets on every push anyway. CI that
+# depends on a third-party API's mood is exactly the kind of flaky CI worth
+# avoiding.
+#
+# The Polymarket fixture is 2 real events (a 3-market negRisk-grouped,
+# resolved pair and a standalone, unresolved single market), chosen for
+# small, naturally-occurring trade/price counts, not truncated from a
+# bigger sample, so every row here is a real, unmodified API response
+# object, same discipline as the Manifold fixture and ADR-0006.
 name: CI
 
 on:
@@ -41,6 +48,9 @@ jobs:
       - name: "Spark: flatten raw JSON to Parquet"
         run: python spark/flatten_to_parquet.py
 
+      - name: "Spark: flatten Polymarket raw JSON to Parquet"
+        run: python spark/flatten_polymarket.py
+
       - name: dbt deps (installs dbt_utils, per dbt/packages.yml)
         working-directory: dbt
         run: dbt deps
@@ -48,6 +58,20 @@ jobs:
       - name: dbt build (staging -> intermediate -> marts, with tests)
         working-directory: dbt
         run: dbt build --profiles-dir .
+
+      # Polymarket is gated behind INCLUDE_POLYMARKET (default off, see
+      # int_all_market_ticks.sql), so the build above never touches it. A
+      # second, opt-in build here proves the gated half actually works
+      # too, not just that the default path still builds without it. DuckDB
+      # only: load_parquet_to_postgres.py has no Polymarket support (its
+      # own TABLES list is Manifold-only), so this doesn't run again against
+      # the postgres target below, a real, deliberate scope boundary, not
+      # an oversight (see ADR-0012).
+      - name: dbt build with Polymarket included (INCLUDE_POLYMARKET=true)
+        working-directory: dbt
+        env:
+          INCLUDE_POLYMARKET: "true"
+        run: dbt build --profiles-dir . --full-refresh
 
       # Parquet output from the Spark step above is reused as-is, not
       # regenerated. DuckDB reads that Parquet directly (see

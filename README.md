@@ -2,11 +2,13 @@
 
 A Spark + dbt pipeline over Manifold Markets' public API, reconstructing implied-probability history for 2026 World Cup markets and testing whether known prediction-market biases (calibration drift, the favorite-longshot bias) hold in a narrower, faster-moving, more correlated domain than the politics/macro markets most existing research covers. Deployed as a Kubernetes batch job.
 
-Built to gain real, hands-on experience with Spark, dbt, and Kubernetes. Three tools I hadn't used in production before this. See [Architecture Decision Records](docs/decisions/) for the reasoning behind every non-obvious choice, including the ones that add complexity this specific workload didn't strictly need.
+Extended with a second data source, Polymarket, a real-money exchange, to answer a different question: does calibration actually differ between a real-money market and Manifold's own Mana, given Mana can be bought with cash but never converted back? See [docs/results.md](docs/results.md)'s addendum for the answer, and [ADR-0010](docs/decisions/0010-polymarket-eligible-as-a-future-data-source.md) through [ADR-0013](docs/decisions/0013-platform-calibration-comparison-as-a-deliberate-ds-exception.md) for how it was built.
+
+Built to gain real, hands-on experience with Spark, dbt, Kubernetes, and Postgres-as-a-StatefulSet. Tools I hadn't used in production before this project. See [Architecture Decision Records](docs/decisions/) for the reasoning behind every non-obvious choice, including the ones that add complexity this specific workload didn't strictly need.
 
 **A note on how this was built:** my background is in data engineering. I used Claude Code throughout this project, for pairing on the code and for help with the analysis and understanding it. That means there could be errors I didn't catch. Verify anything here you're relying on, don't take it on faith.
 
-**Status (2026-07-31):** in progress. Ingestion (621 markets, 4,545 answers, 1.18M bet records), Spark, dbt's full staging/intermediate/marts layers, and a real results writeup are all built and verified. See [docs/results.md](docs/results.md) for the actual finding. Kubernetes is designed (see docs below) but not yet implemented, the one piece left for core scope. See `PROJECT_SPEC.md`'s "Scope: core vs. stretch" section for the full picture.
+**Status (2026-08-04):** core scope complete. Ingestion (621 Manifold markets, 4,545 answers, 1.18M bet records; 6,358 Polymarket markets, 4.4M trades, 3.2M price points), Spark, dbt's full staging/intermediate/marts layers across both platforms, a real Kubernetes Job deployment (verified end to end on minikube), a selectable Postgres target (StatefulSet), and the results writeup are all built and verified. See [docs/results.md](docs/results.md) for the actual findings, including the cross-platform comparison. See `PROJECT_SPEC.md`'s "Scope: core vs. stretch" section for the full picture; everything there is done.
 
 ## Problem statement
 
@@ -21,13 +23,18 @@ Full discussion in [docs/architecture.md](docs/architecture.md). **Answers, with
 
 ```mermaid
 flowchart LR
-    A[Manifold API] -->|raw JSON/CSV| B[Ingest, Python]
-    B --> C[Spark: parse + flatten raw bet JSON,<br/>no business logic]
-    C -->|Parquet| D[(local warehouse: DuckDB, later Postgres)]
-    D --> E[dbt: staging -> intermediate -> marts<br/>probability-over-time, VWAP, repricing detection]
-    E --> F[mart_match_price_history]
-    E --> G[mart_market_efficiency]
-    E --> H[mart_outright_odds_over_time]
+    A[Manifold API] -->|raw JSON| B[Ingest, Python]
+    A2[Polymarket API<br/>Gamma / Data / CLOB] -->|raw JSON| B2[Ingest, Python]
+    B --> C[Spark: parse + flatten,<br/>no business logic]
+    B2 --> C2[Spark: parse + flatten,<br/>no business logic]
+    C -->|Parquet| D[(DuckDB, default;<br/>Postgres StatefulSet, selectable)]
+    C2 -->|Parquet| D
+    D --> E[dbt staging: per-platform,<br/>pure rename/type]
+    E --> F[int_all_market_ticks:<br/>canonical cross-platform schema]
+    F --> G[int_market_implied_probability<br/>VWAP, repricing detection]
+    G --> H[mart_market_efficiency]
+    G --> I[mart_outright_odds_over_time]
+    G --> J[mart_platform_calibration_comparison]
 
     subgraph K8s Job
     B
@@ -61,6 +68,20 @@ dbt build --profiles-dir .          # builds + tests staging, intermediate, and 
 
 cd .. && python analysis/plot_calibration.py           # regenerates docs/images/calibration_chart.png
 python analysis/compute_calibration_metrics.py         # Brier score + liquidity-tier numbers behind docs/results.md
+```
+
+Polymarket is a separate, optional addition, not part of the core pipeline above: `dbt build` never requires it, gated behind `INCLUDE_POLYMARKET` (default off, see `int_all_market_ticks.sql`). Run it to reproduce the cross-platform comparison in `docs/results.md`'s addendum:
+
+```bash
+python ingest/pull_polymarket_markets.py
+python ingest/pull_polymarket_trades.py   # ~20-30 min at full scale (6,358 markets)
+python ingest/pull_polymarket_prices.py   # ~30-60 min at full scale, chunked per market (ADR-0011)
+
+python spark/flatten_polymarket.py
+
+cd dbt && INCLUDE_POLYMARKET=true dbt build --profiles-dir .
+cd .. && python analysis/compare_platform_calibration.py    # the significance test, ADR-0013
+python analysis/compare_platform_predictions.py             # the descriptive team-by-team comparison
 ```
 
 Or as a Kubernetes Job, on a local cluster (minikube, tested; kind should work identically):
@@ -97,9 +118,12 @@ To browse the data directly: `duckdb -ui manifold.duckdb` (from inside `dbt/`) o
 
 To browse the project's structure instead of the data (model lineage graph, column-level descriptions, which models depend on which): `dbt docs generate --profiles-dir . && dbt docs serve` (from inside `dbt/`) builds and serves dbt's own documentation site from the `description:` fields already written in each model's `schema.yml`.
 
-## Data source
+## Data sources
 
-[Manifold Markets](https://manifold.markets) public API, no authentication required. See [ADR-0001](docs/decisions/0001-data-source-manifold-not-kalshi.md) for why this project doesn't use Kalshi despite starting there, and [docs/data_dictionary.md](docs/data_dictionary.md) for the schema of everything ingested so far.
+- [Manifold Markets](https://manifold.markets) public API, no authentication required. See [ADR-0001](docs/decisions/0001-data-source-manifold-not-kalshi.md) for why this project doesn't use Kalshi despite starting there.
+- [Polymarket](https://polymarket.com) public API (Gamma, Data, CLOB), also no authentication required for the read-only endpoints this project uses. Optional, see "How to run it" above. See [ADR-0010](docs/decisions/0010-polymarket-eligible-as-a-future-data-source.md) for the terms-of-use verification (read directly from the actual PDF, not a summary) and [ADR-0011](docs/decisions/0011-polymarket-api-shape-and-full-history-pricing.md) for the real API shape and its quirks.
+
+See [docs/data_dictionary.md](docs/data_dictionary.md) for the schema of everything ingested from both.
 
 ## Project docs
 

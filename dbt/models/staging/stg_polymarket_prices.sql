@@ -9,6 +9,10 @@
 -- snapshot, not an executed fill. int_market_implied_probability's VWAP
 -- weighting has nothing to weight by for these rows; left genuinely NULL
 -- downstream rather than faked with an equal weight.
+--
+-- Gated behind INCLUDE_POLYMARKET (default: off); see int_all_market_ticks.
+
+{{ config(enabled = env_var('INCLUDE_POLYMARKET', 'false') == 'true') }}
 
 select
     market_id,

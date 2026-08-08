@@ -16,6 +16,12 @@
 -- group-level lookup is needed here: each Polymarket market's own
 -- outcome_prices already says whether that specific team's market resolved
 -- YES or NO, it isn't only recorded once at the group level.
+--
+-- Gated behind INCLUDE_POLYMARKET (default: off), same reasoning as
+-- int_all_market_ticks: a plain `dbt build` builds every model in the
+-- project regardless of what references it, so this needs its own
+-- disable, not just going unreferenced when the flag is off.
+{{ config(enabled = env_var('INCLUDE_POLYMARKET', 'false') == 'true') }}
 
 select
     coalesce(neg_risk_market_id, market_id) as market_id,

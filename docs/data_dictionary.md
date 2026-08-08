@@ -131,6 +131,110 @@ Produced by [`ingest/pull_bets.py`](../ingest/pull_bets.py). Every bet object `G
 | `isCancelled` | `is_cancelled` | also drives the `WHERE` filter above |
 | `isRedemption` | `is_redemption` | |
 
+## Polymarket
+
+Optional second data source, gated behind `INCLUDE_POLYMARKET` (default: off, see [ADR-0012](decisions/0012-cross-platform-canonical-trade-schema.md)). Three raw datasets, no equivalent of Manifold's separate "market answers" pull: Polymarket's per-team markets already carry everything needed, nothing has to be fetched in a second pass the way Manifold's non-`BINARY` answers do.
+
+### `data/raw/polymarket_2026_events.jsonl` -> `data/processed/polymarket_markets`
+
+Produced by [`ingest/pull_polymarket_markets.py`](../ingest/pull_polymarket_markets.py), one JSON object per line, one per Polymarket **event** matching `/public-search?q=World Cup 2026`, paginated by `page` (a real offset, unlike Manifold's `limit`-truncation bug in ADR-0007, confirmed to return the API's own reported `totalResults` exactly). **488 events.** Each event nests a `markets` array, Polymarket's equivalent of one binary sub-question (e.g. one team's outright-winner market); an outright-winner event like "World Cup Winner" contains 50+ of these, linked by a shared `negRiskMarketID`, not one multi-choice market the way Manifold's is (see [ADR-0011](decisions/0011-polymarket-api-shape-and-full-history-pricing.md)). Spark explodes this array; **6,359 nested markets** across the 488 events.
+
+| Field | Level | Type | Notes |
+|---|---|---|---|
+| `id` | event | string | Aliased `event_id` in Parquet. |
+| `title` | event | string | Aliased `event_title`. |
+| `id` | market | string | The individual binary market's own id, distinct from the event id above. |
+| `conditionId` | market | string | The market's on-chain condition id, unique per binary market, used to join against trades and prices. |
+| `question` | market | string | Full question text, e.g. "Will Spain win the World Cup?" |
+| `groupItemTitle` | market | string | Short label for this market within its event, e.g. the team name alone, "Spain." Polymarket's equivalent of Manifold's per-answer `text`. |
+| `negRiskMarketID` | market | string | Present only when this market belongs to a grouped ("negRisk") event; absent (not just null) on genuine standalone binary questions. Drives the canonical `market_id`/`answer_id` split below, the same way Manifold's `outcomeType` drives its own. |
+| `outcomes` | market | string (JSON array) | e.g. `'["Yes", "No"]'`. Carried through unparsed; not currently used downstream. |
+| `outcomePrices` | market | string (JSON array) | e.g. `'["0.02", "0.98"]'` while trading, `'["1", "0"]'` or `'["0", "1"]'` once resolved. Polymarket's equivalent of Manifold's `resolution` + `probability` combined into one field; parsed in staging, not here (ADR-0005: no business logic in ingestion/flatten). |
+| `clobTokenIds` | market | string (JSON array) | The two CLOB token ids backing this market's Yes/No order books, `[0]` is Yes, confirmed empirically, never assumed (see `pull_polymarket_prices.py`'s own docstring). |
+| `volume` | market | float | Cumulative trading volume, in USD, real money, unlike Manifold's Mana-denominated `volume`. |
+| `liquidity` | market | float | Order-book depth, Polymarket's rough equivalent of Manifold's `totalLiquidity`, not the same mechanism (CLOB order book vs. AMM subsidy pool). |
+| `active` | market | bool | Whether the market is still open for trading. |
+| `closed` | market | bool | Whether the market has stopped trading (Polymarket's equivalent of Manifold's `isResolved`, confirmed in practice to track resolution for this dataset's markets, not merely "trading halted"). |
+| `createdAt` | market | string (ISO 8601) | |
+| `startDate` | market | string (ISO 8601) | |
+| `endDate` | market | string (ISO 8601) | |
+| `closedTime` | market | string (ISO 8601) | When the market actually closed/resolved, empty otherwise. |
+
+#### -> `stg_polymarket_markets` (dbt)
+
+Not a pure rename, same "the model that decodes identity" role `stg_manifold_markets`/`stg_manifold_market_answers` split between them, done in one model here since Polymarket's grouping is flatter.
+
+| Raw (Parquet) | dbt staging column | Notes |
+|---|---|---|
+| `coalesce(neg_risk_market_id, market_id)` | `market_id` | canonical, group-level id: the shared `negRiskMarketID` when grouped, else the market's own id |
+| `neg_risk_market_id is not null` ? `market_id` : `NULL` | `answer_id` | mirrors Manifold's `answerId`: present only when grouped, `NULL` on a genuine standalone binary market, exactly like a Manifold `BINARY` bet |
+| `market_id` (raw) | `polymarket_market_id` | this individual market's own raw id, kept for traceability once the canonical `market_id` above points at the group instead |
+| `conditionId` | `condition_id` | the real join key to trades and prices, unaffected by the negRisk grouping logic above |
+| `question` | `question` | |
+| `groupItemTitle` | `answer_text` | |
+| n/a | `outcome_type` | hardcoded `'BINARY'`: every Polymarket market ingested here is binary at the individual-market level, unlike Manifold |
+| `outcome_prices` (parsed) | `resolution` | `'YES'`/`'NO'`/`NULL`, decoded from `outcomePrices[0] == '1'` or `[1] == '1'` once `closed` |
+| `closed` | `is_resolved` | |
+| `outcome_prices` (parsed) | `prob` | `outcomePrices[0]`, cast to `double` |
+| `volume` | `volume` | |
+| `liquidity` | `liquidity_total` | |
+| `created_at` / `closed_time` | `created_at` / `closed_at` / `resolved_at` | string -> `TIMESTAMP`; `resolved_at` reuses `closed_time`, Polymarket has no separate resolution timestamp the way Manifold does |
+| `clob_token_ids` (parsed) | `yes_token_id` | `clobTokenIds[0]`, the join key into `stg_polymarket_prices`/`stg_polymarket_trades`' `token_id`/`asset` |
+
+### `data/raw/polymarket_2026_trades.jsonl` -> `data/processed/polymarket_trades`
+
+Produced by [`ingest/pull_polymarket_trades.py`](../ingest/pull_polymarket_trades.py), `GET /trades` per market `conditionId`, paginated by offset. **Hard-capped at the 10,000 most-recent records per market**, no way to page further back (confirmed via the API's own `"max historical trades offset of 10000 exceeded"` error, see [ADR-0011](decisions/0011-polymarket-api-shape-and-full-history-pricing.md)); real, load-bearing truncation, not a bug, which is why `stg_polymarket_prices` below is the primary reconstruction source, not this table. **4,378,920 rows across 6,358 markets.**
+
+| Field | Type | Notes |
+|---|---|---|
+| `conditionId` | string | Foreign key to `condition_id` in the markets table. |
+| `asset` | string | The CLOB token id this specific fill traded, matches either side's `clobTokenIds` entry. |
+| `side` | string | `BUY` or `SELL`. |
+| `outcome` | string | Human-readable, `"Yes"` or `"No"`. |
+| `outcomeIndex` | int | `0` for Yes, `1` for No, confirmed empirically to always align this way across the dataset. |
+| `size` | float | Shares traded. Polymarket's equivalent of Manifold's `shares`. |
+| `price` | float, 0-1 | Execution price for this fill, Polymarket's equivalent of a single point on Manifold's `probBefore`/`probAfter` pair; a fill has one price, not a before/after. |
+| `timestamp` | int | Epoch **seconds** (not milliseconds, unlike Manifold's `createdTime`), UTC. |
+| `transactionHash` | string | On-chain transaction hash. Multiple fills can share one hash if a single transaction settled several trades atomically, which is why it alone isn't a usable trade id. |
+
+#### -> `stg_polymarket_trades` (dbt)
+
+Filters to Yes-side fills only (`WHERE outcomeIndex = 0`); No-side trades are the complementary view of the same information, matching the Yes-only convention `stg_polymarket_prices` already uses and Manifold's own `prob = P(YES)` convention.
+
+| Raw (Parquet) | dbt staging column | Notes |
+|---|---|---|
+| n/a | `trade_id` | synthesized: `md5()` over `transactionHash`, `conditionId`, `asset`, `side`, `size`, `price`, `timestamp` together, since no single raw field is a usable id on its own (a `transactionHash` alone can cover several fills) |
+| `conditionId` | `condition_id` | |
+| `asset` | `token_id` | |
+| `side` | `side` | |
+| `size` | `size` | |
+| `price` | `price` | |
+| `timestamp` | `created_at` | epoch-seconds -> plain `TIMESTAMP` (not `TIMESTAMP WITH TIME ZONE`; a real mismatch against Manifold's own UTC-naive columns caught once this fed the shared union, see `int_all_market_ticks.sql`) |
+
+### `data/raw/polymarket_2026_prices.jsonl` -> `data/processed/polymarket_prices`
+
+Produced by [`ingest/pull_polymarket_prices.py`](../ingest/pull_polymarket_prices.py), `GET /prices-history` per market's Yes token (`clobTokenIds[0]` only), walked across each market's lifetime in 14-day chunks and stitched together (the endpoint isn't count-capped like `/trades`, but is span-capped per request at roughly 20-30 days, confirmed empirically, see ADR-0011), `fidelity=60` (hourly samples). **The primary source for Polymarket probability reconstruction**, not `/trades`, specifically because it isn't recency-capped. **3,209,795 rows across 6,357 markets.**
+
+| Field | Type | Notes |
+|---|---|---|
+| `market_id` | string | Carried through from the market list used to drive the pull, not part of the CLOB API's own response. |
+| `condition_id` | string | Same, the real join key downstream. |
+| `token_id` | string | The Yes-side CLOB token this series belongs to. |
+| `t` | int | Epoch seconds, UTC. |
+| `p` | float, 0-1 | Sampled price at that timestamp. No trade size accompanies it: a price sample, not an executed fill. |
+
+#### -> `stg_polymarket_prices` (dbt)
+
+Pure rename + type conversion, no rows dropped.
+
+| Raw (Parquet) | dbt staging column | Notes |
+|---|---|---|
+| `market_id` | `market_id` | |
+| `condition_id` | `condition_id` | |
+| `token_id` | `token_id` | |
+| `t` | `created_at` | epoch-seconds -> plain `TIMESTAMP`, same reasoning as `stg_polymarket_trades.created_at` above |
+| `p` | `price` | |
+
 ## History: the CSV era (superseded by ADR-0006, not deleted)
 
 The project started with CSV as the raw format, with real, instructive consequences. Kept here rather than erased, since they're genuinely useful "what broke" material:
@@ -143,4 +247,5 @@ All three are exactly why the raw format changed to JSON Lines and why raw data 
 
 ## Open questions / not yet handled
 
-- None currently blocking. All three raw files are ingested via the JSON pipeline, deduplicated correctly, and flattened to Parquet with real native types. Next real work is on the transformation side: `stg_manifold_bets`'s filter logic and its test coverage, in dbt.
+- None blocking on the Manifold side. All three raw files are ingested via the JSON pipeline, deduplicated correctly, and flattened to Parquet with real native types.
+- Polymarket now has its own committed CI fixture ([`tests/fixtures/raw/`](../tests/fixtures/raw/), 2 real events), see `docs/data_engineering_best_practices.md`. `mart_platform_calibration_comparison` still builds to zero rows in CI, since its hardcoded outright-winner market IDs aren't in either platform's fixture, a known, documented gap, not an oversight.

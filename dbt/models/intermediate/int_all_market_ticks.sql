@@ -35,6 +35,17 @@
 -- depends on this exact column name for Manifold. Not literally a bet for
 -- Polymarket's rows, an interface-stability tradeoff, not a claim about
 -- what the id represents.
+--
+-- The Polymarket half is gated behind INCLUDE_POLYMARKET (default: off),
+-- not a hard dependency. Once Manifold's own core marts started reading
+-- through this union instead of stg_manifold_bets directly, a plain
+-- `dbt build` broke outright the moment Polymarket's raw Parquet wasn't
+-- present, a real regression against every existing consumer of this
+-- pipeline, caught by actually running a Manifold-only build rather than
+-- assumed to still work. Polymarket ingestion (ingest/pull_polymarket_*.py,
+-- spark/flatten_polymarket.py) is a real, separate, hours-long step; it
+-- shouldn't be a silent prerequisite for the pipeline this project was
+-- built around in the first place.
 
 with manifold_ticks as (
 
@@ -49,8 +60,10 @@ with manifold_ticks as (
         'manifold' as source_platform
     from {{ ref('stg_manifold_bets') }}
 
-),
+)
 
+{% if env_var('INCLUDE_POLYMARKET', 'false') == 'true' %}
+,
 polymarket_ticks as (
 
     select
@@ -78,7 +91,10 @@ polymarket_ticks as (
         on p.condition_id = m.condition_id
 
 )
+{% endif %}
 
 select * from manifold_ticks
+{% if env_var('INCLUDE_POLYMARKET', 'false') == 'true' %}
 union all
 select * from polymarket_ticks
+{% endif %}

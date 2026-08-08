@@ -22,6 +22,13 @@
 -- Polymarket's per-market resolution (stg_polymarket_markets) is already
 -- correctly self-contained per team, confirmed empirically: 59 NO, 1 YES
 -- (Spain), no equivalent derivation needed on that side.
+--
+-- Gated behind INCLUDE_POLYMARKET (default: off); see int_all_market_ticks.
+-- This mart has no meaning at all without Polymarket data, unlike the
+-- staging models it depends on, so it's disabled together with them, not
+-- separately reconsidered.
+
+{{ config(enabled = env_var('INCLUDE_POLYMARKET', 'false') == 'true') }}
 
 {% set tournament_start = "'2026-06-11 19:00:00'" %}
 {% set manifold_outright_market_id = "JRzL2QcArhM674YSO4d8" %}
