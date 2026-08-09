@@ -235,6 +235,19 @@ Pure rename + type conversion, no rows dropped.
 | `t` | `created_at` | epoch-seconds -> plain `TIMESTAMP`, same reasoning as `stg_polymarket_trades.created_at` above |
 | `p` | `price` | |
 
+## Semantic cross-platform market matching (ADR-0014)
+
+Derived analysis artifacts, not raw-ingested data: everything here is computed locally from the already-built warehouse (`stg_manifold_markets`, `stg_manifold_market_answers`, `stg_polymarket_markets`), not pulled from any API. Optional, gated the same way Polymarket itself is (`INCLUDE_POLYMARKET=true dbt build` first), plus its own separate venv and Ollama install, see `requirements.md`. Everything below lives under `data/processed/`, already covered by the blanket `data/` entry in `.gitignore`.
+
+| File | Produced by | Shape |
+|---|---|---|
+| `embeddings/manifold_embeddings.npz`, `embeddings/polymarket_embeddings.npz` | `analysis/market_embeddings.py`'s `compute_or_load_embeddings()`, called by every script below | One `(N, 384)` float32 array per platform, L2-normalized, `N` = the platform's row count from `fetch_manifold_texts`/`fetch_polymarket_texts` (is_other excluded on the Manifold side). A plain dot product between two rows equals cosine similarity. |
+| `embeddings/manifold_embeddings.meta.json`, `embeddings/polymarket_embeddings.meta.json` | same | `{"model": "all-MiniLM-L6-v2", "content_hash": "...", "n_rows": N}`. The content hash covers every `(id, embed_text)` pair; a query returning the same rows in a different order doesn't invalidate the cache, a genuine content change does. |
+| `candidate_market_matches.csv` | `analysis/find_candidate_market_matches.py` | One row per (Manifold market/answer, rank 1-5 Polymarket candidate): `manifold_market_id, manifold_answer_id, manifold_text, rank, polymarket_condition_id, polymarket_market_id, polymarket_text, cosine_similarity`. Pure retrieval, no LLM involved, covers the full corpus (every Manifold row against all 6,359 Polymarket rows). |
+| `candidate_market_matches_explained.csv` | `analysis/explain_top_candidate_matches.py` | One row per Manifold market/answer, for the top-N (100 by default) highest-confidence rows from the file above: `manifold_market_id, manifold_answer_id, manifold_text, llm_pick_rank, llm_pick_polymarket_condition_id, llm_pick_polymarket_text, llm_pick_similarity, llm_reasoning`. `llm_pick_rank` and the fields after it are blank when the model judged none of its top-5 candidates a real match, a valid, expected outcome, not a failure to parse. |
+
+`embed_text` (what actually gets embedded) is `question + " [" + answer_text + "]"` when an answer exists, the market's own `question` alone otherwise, not the bare team/answer name by itself. An earlier version embedded the bare name only; see `market_embeddings.py`'s own `fetch_manifold_texts` docstring for the real bug that caused (every market about the same team collapsing to an identical embedding) and how it was found and fixed.
+
 ## History: the CSV era (superseded by ADR-0006, not deleted)
 
 The project started with CSV as the raw format, with real, instructive consequences. Kept here rather than erased, since they're genuinely useful "what broke" material:

@@ -129,6 +129,18 @@ Below the top few contenders, the platforms track each other almost exactly, sev
 
 Reproducible via `python analysis/compare_platform_predictions.py` (after the same `dbt build` above).
 
+## Can retrieval + a local LLM find market pairs beyond the one hand-picked above?
+
+The comparison above covers exactly one hand-picked market pair per platform (the outright winner market). Manifold has 621 markets, Polymarket has 6,359; there are almost certainly more genuinely comparable pairs, but no way to find them at scale except manually eyeballing thousands of questions. Built a real RAG pipeline to test this: local sentence-transformer embeddings for retrieval, a local LLM (Ollama, no API key anywhere in this project) reasoning over the retrieved candidates. Full build, two real bugs found and fixed along the way, and the honest result: [ADR-0014](decisions/0014-semantic-candidate-matching-local-rag.md).
+
+**Retrieval alone is essentially perfect on this task, evaluated against the same outright-winner group as ground truth: 48/48 (100%) hit@1** across the full 6,359-row Polymarket universe, not a narrowed subset.
+
+**Adding an LLM reasoning step on top makes it worse, not better: only 28/48 (58%) correct.** The failure mode is concrete and checked directly, not assumed: for `"Will Norway Win The 2026 FIFA World Cup?"`, retrieval correctly ranked `"Will Norway win the 2026 FIFA World Cup? [Norway]"` at #1 (0.982 similarity), and the model's own reasoning rejected it, claiming the candidate "does not specify that it's the entire tournament", a plain misreading of text it was directly handed. Across a larger 100-pair sample, every rejected pair had a retrieval score in the 0.90-0.95 band; everything the model confirmed was essentially an exact wording match (>0.95). The model appears to require near-literal text agreement to confirm a match, and rejects genuine paraphrases a human would recognize immediately as the same event.
+
+On the 12 known-negative teams (no correct Manifold match exists, including 8 genuine Polymarket placeholder markets for unassigned qualification slots), generation produced only 1 false positive, so it isn't *reckless*, it's specifically over-conservative on true positives.
+
+**Bottom line: retrieval is the trustworthy, usable half of this feature today; generation isn't, and neither is wired into any mart.** Reproducible via `python analysis/find_candidate_market_matches.py`, `analysis/explain_top_candidate_matches.py`, and `analysis/evaluate_candidate_matches.py` (needs the separate `venv-semantic-matching/` and Ollama, see `requirements.md`).
+
 ## What would strengthen this
 
 Not done here, and worth being explicit about rather than implying this is the final word:

@@ -1,0 +1,14 @@
+# Optional. Only needed for the semantic cross-platform market-matching
+# scripts (ADR-0014): find_candidate_market_matches.py,
+# explain_top_candidate_matches.py, evaluate_candidate_matches.py.
+# Deliberately NOT in requirements.txt and NOT installed by CI, pulls in
+# torch and its transitive stack, several hundred MB, for scripts nobody
+# needs on every push. First dependency this project has fenced off this
+# way.
+#
+# Must be installed against the native arm64 Homebrew Python
+# (/opt/homebrew/opt/python@3.14/bin/python3.14), not the Intel build at
+# /usr/local/opt/python@3.14: torch publishes no macOS wheels for the
+# Intel path at all for a recent version, confirmed empirically while
+# building this feature, not assumed. See requirements.md.
+sentence-transformers==5.7.0

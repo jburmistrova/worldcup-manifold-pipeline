@@ -17,3 +17,4 @@ Short, dated records of the non-obvious calls made on this project and why. Not 
 | [0011](0011-polymarket-api-shape-and-full-history-pricing.md) | Polymarket's real API shape, and getting full-history pricing past a 10,000-trade cap | Accepted |
 | [0012](0012-cross-platform-canonical-trade-schema.md) | A canonical cross-platform trade schema, built and validated on a real 60-market sample | Accepted |
 | [0013](0013-platform-calibration-comparison-as-a-deliberate-ds-exception.md) | Real-money vs. play-money calibration comparison, a deliberate exception to keeping this project DE-scoped | Accepted |
+| [0014](0014-semantic-candidate-matching-local-rag.md) | Semantic cross-platform market matching: local embeddings + local LLM (RAG), not an API | Accepted |

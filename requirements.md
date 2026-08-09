@@ -50,6 +50,33 @@ Tried `pyenv install 3.14.6` first (building Python from source). Failed twice w
 
 `numpy==2.5.1`: only used by `analysis/compare_platform_calibration.py`, the optional Polymarket-vs-Manifold bootstrap significance test (see [ADR-0013](decisions/0013-platform-calibration-comparison-as-a-deliberate-ds-exception.md)). Nothing else in this project needs array math; DuckDB and dbt handle every other aggregation in SQL.
 
+`sentence-transformers==5.7.0`, in a separate optional file, [requirements-semantic-matching.txt](requirements-semantic-matching.txt), not the main `requirements.txt`: only used by the semantic cross-platform market-matching scripts (see [ADR-0014](decisions/0014-semantic-candidate-matching-local-rag.md)). Pulls in `torch` and its transitive stack, several hundred MB, for two manually-run scripts CI never exercises; the first dependency this project has fenced off this way rather than adding to the main file everything installs on every push.
+
+## Semantic matching tooling (optional, ADR-0014)
+
+Two extra local dependencies, on top of the venv above, only needed to run `analysis/find_candidate_market_matches.py`, `analysis/explain_top_candidate_matches.py`, and `analysis/evaluate_candidate_matches.py`.
+
+**A second venv, on the *native arm64* Python, not the Intel one used everywhere else in this project.** `torch` (a `sentence-transformers` dependency) publishes real macOS wheels, but not for the Intel path this project's main `venv/` is built from (see "What broke the first time" below); confirmed empirically by a failed `pip install`, not assumed from a version-support table.
+
+```bash
+/opt/homebrew/bin/brew install python@3.14   # if not already present via the arm64 Homebrew
+/opt/homebrew/opt/python@3.14/bin/python3.14 -m venv venv-semantic-matching
+source venv-semantic-matching/bin/activate
+pip install -r requirements.txt -r requirements-semantic-matching.txt
+```
+
+**Ollama**, for the generation half (an LLM reasoning over retrieved candidates, not just trusting a similarity score), local, no API key, matching this project's zero-credential-plumbing status quo:
+
+```bash
+brew install ollama
+ollama serve &                # must be running before the scripts above
+ollama pull qwen2.5:7b        # ~4.7GB, one-time; the smaller 3b model was tried first and rejected, see ADR-0014
+```
+
+## What broke the first time (semantic matching)
+
+Installing `sentence-transformers` against this project's actual `venv/` (built from `/usr/local/opt/python@3.14`, the Intel Homebrew path documented above) failed outright: `torch` has no distribution at all for that specific interpreter. The instinctive read was "torch doesn't support this Python version yet," reasonable given this project deliberately tracks the latest release. Checked before trusting that explanation: `torch`'s own PyPI metadata publishes real `cp314` wheels, just `macosx_14_0_arm64` only, no `x86_64` build for a recent release. `file venv/bin/python3.14` confirmed the real cause: this project's whole `venv/` has been the **Intel build running under Rosetta** on this Apple Silicon Mac this whole time, the exact same two-parallel-Homebrew-installs bug already documented above for Docker Desktop, just never caught for Python itself, discovered here as a side effect of chasing an unrelated dependency error, not looked for. This also explains a "Rosetta binary translation... significant performance degradation" warning DuckDB has been printing, unremarked on, throughout this project. Fixed for this feature specifically with the dedicated arm64 venv above; rebuilding the main project `venv/` the same way is real, separate follow-up work, not bundled into this fix.
+
 ## Kubernetes tooling
 
 | Tool | Version | Why |

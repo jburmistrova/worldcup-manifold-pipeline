@@ -4,11 +4,13 @@ A Spark + dbt pipeline over Manifold Markets' public API, reconstructing implied
 
 Extended with a second data source, Polymarket, a real-money exchange, to answer a different question: does calibration actually differ between a real-money market and Manifold's own Mana, given Mana can be bought with cash but never converted back? See [docs/results.md](docs/results.md)'s addendum for the answer, and [ADR-0010](docs/decisions/0010-polymarket-eligible-as-a-future-data-source.md) through [ADR-0013](docs/decisions/0013-platform-calibration-comparison-as-a-deliberate-ds-exception.md) for how it was built.
 
+Extended again with a real, local RAG pipeline (embeddings + a local LLM, no API key anywhere in this project) to find cross-platform market pairs beyond the one hand-picked outright-winner pair the marts above use. Evaluated honestly against real ground truth, not just demoed: retrieval alone hits 100%, adding an LLM reasoning layer on top drops that to 58%, a real, measured, and specifically diagnosed regression, not a number tuned until it looked good. See [docs/results.md](docs/results.md)'s addendum and [ADR-0014](docs/decisions/0014-semantic-candidate-matching-local-rag.md) for the full build and the honest result.
+
 Built to gain real, hands-on experience with Spark, dbt, Kubernetes, and Postgres-as-a-StatefulSet. Tools I hadn't used in production before this project. See [Architecture Decision Records](docs/decisions/) for the reasoning behind every non-obvious choice, including the ones that add complexity this specific workload didn't strictly need.
 
 **A note on how this was built:** my background is in data engineering. I used Claude Code throughout this project, for pairing on the code and for help with the analysis and understanding it. That means there could be errors I didn't catch. Verify anything here you're relying on, don't take it on faith.
 
-**Status (2026-08-04):** core scope complete. Ingestion (621 Manifold markets, 4,545 answers, 1.18M bet records; 6,358 Polymarket markets, 4.4M trades, 3.2M price points), Spark, dbt's full staging/intermediate/marts layers across both platforms, a real Kubernetes Job deployment (verified end to end on minikube), a selectable Postgres target (StatefulSet), and the results writeup are all built and verified. See [docs/results.md](docs/results.md) for the actual findings, including the cross-platform comparison. See `PROJECT_SPEC.md`'s "Scope: core vs. stretch" section for the full picture; everything there is done.
+**Status (2026-08-08):** core scope complete, plus two further extensions beyond it. Ingestion (621 Manifold markets, 4,545 answers, 1.18M bet records; 6,358 Polymarket markets, 4.4M trades, 3.2M price points), Spark, dbt's full staging/intermediate/marts layers across both platforms, a real Kubernetes Job deployment (verified end to end on minikube), a selectable Postgres target (StatefulSet), CI exercising the gated Polymarket path on every push, a real RAG pipeline for cross-platform market matching, and the results writeup are all built and verified. See [docs/results.md](docs/results.md) for the actual findings, including both cross-platform comparisons. See `PROJECT_SPEC.md` for the full, dated history; everything logged there as "Done" is done.
 
 ## Problem statement
 
@@ -84,6 +86,22 @@ cd .. && python analysis/compare_platform_calibration.py    # the significance t
 python analysis/compare_platform_predictions.py             # the descriptive team-by-team comparison
 ```
 
+Semantic cross-platform market matching (ADR-0014) is a further, separate optional layer on top of Polymarket above: a local embeddings + local LLM (RAG) pipeline that finds candidate market pairs between the two platforms beyond the one hand-picked outright-winner pair the marts above use. Needs its own venv, built from the native arm64 Python (this project's main `venv/` is built from an Intel Homebrew path that can't install `torch`, see `requirements.md`), and a local [Ollama](https://ollama.com) install for the generation half, no API key involved:
+
+```bash
+/opt/homebrew/opt/python@3.14/bin/python3.14 -m venv venv-semantic-matching
+source venv-semantic-matching/bin/activate
+pip install -r requirements.txt -r requirements-semantic-matching.txt
+
+brew install ollama
+ollama serve &
+ollama pull qwen2.5:7b   # ~4.7GB, one-time
+
+python analysis/find_candidate_market_matches.py    # retrieval only, full corpus, ~5-10 min including one-time embedding
+python analysis/explain_top_candidate_matches.py    # generation over the top 100 highest-confidence pairs, ~20 min
+python analysis/evaluate_candidate_matches.py        # both halves scored against real ground truth, ~15 min
+```
+
 Or as a Kubernetes Job, on a local cluster (minikube, tested; kind should work identically):
 
 ```bash
@@ -134,3 +152,4 @@ See [docs/data_dictionary.md](docs/data_dictionary.md) for the schema of everyth
 - [docs/data_engineering_best_practices.md](docs/data_engineering_best_practices.md): checklist of standard DE practices, applied, planned, or deliberately skipped, and why
 - [docs/project_scale_vs_production.md](docs/project_scale_vs_production.md): dimension by dimension, this project's actual scale vs. what would earn each tool's place at a real company
 - [requirements.md](requirements.md): system prerequisites (Python, Java) and how to set them up, distinct from `requirements.txt`
+- [ADR-0014](docs/decisions/0014-semantic-candidate-matching-local-rag.md): local embeddings + local LLM (RAG) cross-platform market matching
