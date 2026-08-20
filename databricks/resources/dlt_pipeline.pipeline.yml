@@ -1,0 +1,33 @@
+# Task 2: Delta Live Tables (Spark Declarative Pipelines / Lakeflow)
+# replacing dbt. Faithful port of all 19 dbt models (8 staging + 5
+# intermediate + 6 marts) -- see databricks/src/pipelines/worldcup/transformations/
+# and ADR-0016 for the dbt-test -> DLT-expectation mapping and every honest
+# gap found along the way.
+#
+# Default publish target is `staging` (so staging/*.sql files can use bare
+# CREATE names); intermediate/marts files fully-qualify their own CREATE
+# target (${catalog}.intermediate.*, ${catalog}.marts.*) per SDP's
+# publishing-mode convention. Serverless, matching this workspace's real
+# Free Edition default (see ADR-0019) and Databricks' own "default to
+# serverless" guidance.
+resources:
+  pipelines:
+    worldcup_dlt:
+      name: "[${bundle.target}] World Cup: DLT staging -> intermediate -> marts"
+
+      catalog: ${var.catalog}
+      target: staging
+
+      libraries:
+        - glob:
+            include: ../src/pipelines/worldcup/transformations/**
+
+      root_path: ../src/pipelines/worldcup
+
+      configuration:
+        catalog: ${var.catalog}
+        raw_volume_path: ${var.raw_volume_path}
+
+      serverless: true
+      photon: true
+      channel: current

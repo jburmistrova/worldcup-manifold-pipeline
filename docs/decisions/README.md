@@ -18,3 +18,9 @@ Short, dated records of the non-obvious calls made on this project and why. Not 
 | [0012](0012-cross-platform-canonical-trade-schema.md) | A canonical cross-platform trade schema, built and validated on a real 60-market sample | Accepted |
 | [0013](0013-platform-calibration-comparison-as-a-deliberate-ds-exception.md) | Real-money vs. play-money calibration comparison, a deliberate exception to keeping this project DE-scoped | Accepted |
 | [0014](0014-semantic-candidate-matching-local-rag.md) | Semantic cross-platform market matching: local embeddings + local LLM (RAG), not an API | Accepted |
+| [0015](0015-databricks-asset-bundles-jobs-not-all-purpose.md) | Databricks Asset Bundles + Jobs, not all-purpose compute or click-built resources | Accepted |
+| [0016](0016-delta-live-tables-vs-plain-notebooks.md) | Delta Live Tables (SQL), not plain PySpark/SQL notebooks, replacing dbt | Accepted |
+| [0017](0017-unity-catalog-schema-design.md) | Unity Catalog schema design: one catalog, dbt-layer-mirroring schemas | Accepted |
+| [0018](0018-unity-catalog-volumes-not-dbfs.md) | Unity Catalog Volumes, not DBFS, for landed raw data | Accepted |
+| [0019](0019-serverless-compute.md) | Serverless compute, not classic clusters, for both the ingestion Job and the DLT pipeline | Accepted |
+| [0020](0020-rag-matching-stays-local.md) | Cross-platform market matching (RAG) stays local, not ported to Databricks | Accepted |

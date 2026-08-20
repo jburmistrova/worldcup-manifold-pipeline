@@ -1,0 +1,29 @@
+# Declarative Automation Bundle (DAB) for the Databricks port of this
+# project. Defines the ingestion Job (task 1) and the DLT/SDP pipeline
+# (task 2) as code, deployed via `databricks bundle deploy`, not clicked
+# together in the UI -- the same "infra as code, not manual setup" standard
+# the rest of this project already holds itself to (k8s/*.yaml, dbt/).
+#
+# This bundle is entirely self-contained under databricks/, deployed and run
+# independently of everything else in this repo. Nothing outside this folder
+# is touched by `databricks bundle deploy`.
+bundle:
+  name: worldcup-databricks
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog everything in this bundle reads/writes.
+    default: worldcup_manifold
+  raw_volume_path:
+    description: UC Volume landed raw JSON lands in (ingest/*.py's data/raw/ equivalent).
+    default: /Volumes/worldcup_manifold/raw/landed_json
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      host: https://dbc-7ea9a3f4-1387.cloud.databricks.com

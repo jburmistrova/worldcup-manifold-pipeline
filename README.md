@@ -6,6 +6,8 @@ Extended with a second data source, Polymarket, a real-money exchange, to answer
 
 Extended again with a real, local RAG pipeline (embeddings + a local LLM, no API key anywhere in this project) to find cross-platform market pairs beyond the one hand-picked outright-winner pair the marts above use. Evaluated honestly against real ground truth, not just demoed: retrieval alone hits 100%, adding an LLM reasoning layer on top drops that to 58%, a real, measured, and specifically diagnosed regression, not a number tuned until it looked good. See [docs/results.md](docs/results.md)'s addendum and [ADR-0014](docs/decisions/0014-semantic-candidate-matching-local-rag.md) for the full build and the honest result.
 
+Ported onto Databricks as a second, parallel path: PySpark ingestion as a Databricks Job, Delta Live Tables replacing dbt, Unity Catalog governance. Additive, not a rewrite -- everything above still runs exactly as documented, nothing was edited or removed. See [Databricks path](#databricks-path) below.
+
 Built to gain real, hands-on experience with Spark, dbt, Kubernetes, and Postgres-as-a-StatefulSet. Tools I hadn't used in production before this project. See [Architecture Decision Records](docs/decisions/) for the reasoning behind every non-obvious choice, including the ones that add complexity this specific workload didn't strictly need.
 
 **A note on how this was built:** my background is in data engineering. I used Claude Code throughout this project, for pairing on the code and for help with the analysis and understanding it. That means there could be errors I didn't catch. Verify anything here you're relying on, don't take it on faith.
@@ -132,6 +134,20 @@ python spark/load_parquet_to_postgres.py        # Postgres has no DuckDB-style d
 cd dbt && dbt build --profiles-dir . --target postgres
 ```
 
+## Databricks path
+
+A parallel, additive port onto Databricks (Free Edition), built to gain real, hands-on Databricks/PySpark/Delta Live Tables/Unity Catalog experience -- not a replacement for the local Spark+dbt build above, which stays exactly as documented. Same ingestion logic (offset pagination, retry/backoff), the same 19 dbt models faithfully re-implemented as Delta Live Tables (dbt tests mapped to DLT expectations, with every case DLT can't express the same check written up honestly), and real Unity Catalog governance (catalog/schema structure, applied grants, lineage). The cross-platform RAG matching step above stays local rather than moving here: a Databricks Free Edition notebook genuinely can't reach a model server on this laptop, confirmed empirically rather than assumed (see [ADR-0020](docs/decisions/0020-rag-matching-stays-local.md)).
+
+```bash
+databricks bundle deploy -t dev --profile <profile>
+databricks bundle run worldcup_ingest_and_flatten -t dev --profile <profile>
+databricks bundle run worldcup_dlt -t dev --profile <profile>
+```
+
+Every number in [databricks/docs/results-databricks.md](databricks/docs/results-databricks.md) was actually recomputed against the Databricks-produced marts after this migration, not carried over from the numbers above. Full instructions, architecture, and the six new Databricks-specific ADRs (0015-0020, additions alongside the original 14, not edits to them): [databricks/README.md](databricks/README.md).
+
+## Browsing the data
+
 To browse the data directly: `duckdb -ui manifold.duckdb` (from inside `dbt/`) opens DuckDB's built-in local web UI, a schema browser and SQL editor against the same database file dbt just built into. See [requirements.md](requirements.md) for the CLI install.
 
 To browse the project's structure instead of the data (model lineage graph, column-level descriptions, which models depend on which): `dbt docs generate --profiles-dir . && dbt docs serve` (from inside `dbt/`) builds and serves dbt's own documentation site from the `description:` fields already written in each model's `schema.yml`.
@@ -153,3 +169,4 @@ See [docs/data_dictionary.md](docs/data_dictionary.md) for the schema of everyth
 - [docs/project_scale_vs_production.md](docs/project_scale_vs_production.md): dimension by dimension, this project's actual scale vs. what would earn each tool's place at a real company
 - [requirements.md](requirements.md): system prerequisites (Python, Java) and how to set them up, distinct from `requirements.txt`
 - [ADR-0014](docs/decisions/0014-semantic-candidate-matching-local-rag.md): local embeddings + local LLM (RAG) cross-platform market matching
+- [databricks/README.md](databricks/README.md): the Databricks port -- PySpark ingestion, Delta Live Tables, Unity Catalog, ADRs 0015-0020

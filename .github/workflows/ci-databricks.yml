@@ -1,0 +1,42 @@
+# Lint/dry-run only, on every push. This is NOT a live Databricks smoke
+# test: there is no workspace secret wired into this workflow, and none
+# will be added without an explicit, separate decision (creating a GitHub
+# repo secret is a real account-level change, not something to do silently
+# alongside a lint job -- see databricks/ci_lint.py's own docstring and
+# ADR-0015/0016).
+#
+# What this job actually exercises: YAML syntax of the bundle config, plain
+# Python syntax of every notebook, and a syntax/legacy-syntax check on every
+# DLT SQL file (see databricks/ci_lint.py's docstring for exactly what that
+# does and does not catch -- notably, it would NOT have caught either of
+# the two real bugs ADR-0015 documents finding on Databricks itself, both
+# of which only surfaced by actually running the job on a real workspace).
+#
+# What this job does NOT exercise: `databricks bundle validate` (confirmed
+# empirically to require live credentials, no credential-free dry-run
+# mode exists), any actual notebook/job/pipeline run, and anything in
+# databricks/evaluation/ (needs a live SQL warehouse connection).
+name: CI (Databricks lint)
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install lint dependencies
+        run: pip install pyyaml
+
+      - name: Lint Databricks bundle (YAML syntax, notebook Python syntax, DLT SQL syntax)
+        run: python databricks/ci_lint.py

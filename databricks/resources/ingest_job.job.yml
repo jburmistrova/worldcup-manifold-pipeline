@@ -1,0 +1,37 @@
+# Task 1: PySpark ingestion on Databricks. Ports ingest/pull_*.py +
+# spark/flatten_to_parquet.py + spark/flatten_polymarket.py, run as a
+# Databricks Job (not all-purpose/interactive compute -- see ADR-0015),
+# writing to a Unity Catalog Volume + managed Delta tables instead of local
+# disk. No cluster config on any task = serverless, Free Edition's real
+# default and the one this workspace's own entitlements/warehouse setup
+# already pointed at in Phase 0 (see ADR-0019).
+resources:
+  jobs:
+    worldcup_ingest_and_flatten:
+      name: "[${bundle.target}] World Cup: ingest + flatten to Delta"
+
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+
+      tasks:
+        - task_key: ingest_manifold
+          notebook_task:
+            notebook_path: ../src/notebooks/ingest_manifold.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+
+        - task_key: ingest_polymarket
+          notebook_task:
+            notebook_path: ../src/notebooks/ingest_polymarket.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+
+        - task_key: flatten_to_delta
+          depends_on:
+            - task_key: ingest_manifold
+            - task_key: ingest_polymarket
+          notebook_task:
+            notebook_path: ../src/notebooks/flatten_to_delta.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
